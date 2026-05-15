@@ -1,6 +1,13 @@
 """Application services for Duzman Stage A."""
 
 from duzman.services.market_data import MarketDataService
+from duzman.services.market_data_collection_job import (
+    DEFAULT_BINANCE_SYMBOLS,
+    DEFAULT_COINGECKO_COIN_IDS,
+    MarketDataCollectionJob,
+    MarketDataCollectionResult,
+    run_public_market_data_ingestion_job,
+)
 from duzman.services.market_data_fetchers import PublicMarketDataFetcher
 from duzman.services.market_data_ingestion import (
     MarketDataIngestionResult,
@@ -23,6 +30,10 @@ __all__ = [
     "MarketDataIngestionResult",
     "MarketDataIngestionService",
     "MarketDataService",
+    "DEFAULT_BINANCE_SYMBOLS",
+    "DEFAULT_COINGECKO_COIN_IDS",
+    "MarketDataCollectionJob",
+    "MarketDataCollectionResult",
     "PublicHttpClient",
     "PublicHttpClientError",
     "PublicHttpJsonError",
@@ -30,6 +41,7 @@ __all__ = [
     "PublicHttpStatusError",
     "PublicHttpTimeoutError",
     "PublicMarketDataFetcher",
+    "run_public_market_data_ingestion_job",
     "SourceHealthTrackingResult",
     "SourceHealthTrackingService",
 ]

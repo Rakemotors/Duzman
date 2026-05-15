@@ -84,3 +84,5 @@ Do not create or edit `.env` as part of routine test setup. A future task should
 - The ingestion service persists supplied/static payloads to `price_snapshots` in tests without live API calls.
 - The scheduler helper registers an hourly ingestion job definition but does not start production scheduling automatically.
 - Public HTTP fetchers exist for explicit public market-data requests, with source health tracking for status, latency, and bounded error messages.
+- The market data collection job wires public fetchers, `price_snapshots` persistence, and source health checks in offline tests with fake fetchers.
+- Tests do not apply live database migrations or start a production scheduler.

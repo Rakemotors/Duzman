@@ -20,4 +20,3 @@ def register_hourly_market_data_ingestion_job(
         id=HOURLY_MARKET_DATA_INGESTION_JOB_ID,
         replace_existing=True,
     )
-

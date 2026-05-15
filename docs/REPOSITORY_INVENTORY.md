@@ -244,12 +244,13 @@ Implemented:
 - GET-only public HTTP client abstraction exists.
 - Binance and CoinGecko public fetcher service exists and is tested with mocked HTTP.
 - Source health check persistence exists for source status, latency, and bounded errors.
+- Explicit market data collection job exists for public fetch, price snapshot persistence, and source health tracking.
 
 Missing:
 
 - Structured logging usage.
 - Production scheduler startup wiring.
-- Automatic ingestion flow that combines live public fetches, price persistence, and source health in scheduled runtime.
+- Runtime entrypoint that supplies real DB/session dependencies to the scheduler job.
 
 ## 17. Day 3 readiness assessment
 
