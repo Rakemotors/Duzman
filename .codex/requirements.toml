@@ -1,0 +1,120 @@
+# Duzman Codex hard requirements.
+# These rules restrict dangerous command classes.
+# They are intentionally conservative.
+
+version = 1
+
+[[rules.prefix_rules]]
+pattern = [{ token = "sudo" }]
+decision = "forbidden"
+justification = "Duzman Codex must not run sudo. System-level tasks require separate manual approval."
+
+[[rules.prefix_rules]]
+pattern = [{ token = "apt" }]
+decision = "forbidden"
+justification = "Codex must not install OS packages."
+
+[[rules.prefix_rules]]
+pattern = [{ token = "chmod" }]
+decision = "forbidden"
+justification = "Codex must not change permissions without a separate manual task."
+
+[[rules.prefix_rules]]
+pattern = [{ token = "chown" }]
+decision = "forbidden"
+justification = "Codex must not change ownership without a separate manual task."
+
+[[rules.prefix_rules]]
+pattern = [{ token = "systemctl" }]
+decision = "forbidden"
+justification = "Codex must not modify systemd services during project-code tasks."
+
+[[rules.prefix_rules]]
+pattern = [{ token = "ufw" }]
+decision = "forbidden"
+justification = "Codex must not change firewall settings."
+
+[[rules.prefix_rules]]
+pattern = [{ token = "fail2ban-client" }]
+decision = "forbidden"
+justification = "Codex must not change fail2ban settings."
+
+[[rules.prefix_rules]]
+pattern = [{ token = "ssh-keygen" }]
+decision = "forbidden"
+justification = "Codex must not create, rotate, inspect, or replace SSH keys."
+
+[[rules.prefix_rules]]
+pattern = [{ token = "git" }, { token = "push" }]
+decision = "forbidden"
+justification = "Codex must not push to GitHub. Operator pushes manually."
+
+[[rules.prefix_rules]]
+pattern = [{ token = "git" }, { token = "remote" }]
+decision = "forbidden"
+justification = "Codex must not inspect or modify Git remotes without a separate manual task."
+
+[[rules.prefix_rules]]
+pattern = [{ token = "env" }]
+decision = "forbidden"
+justification = "Codex must not print environment variables because they may contain secrets."
+
+[[rules.prefix_rules]]
+pattern = [{ token = "printenv" }]
+decision = "forbidden"
+justification = "Codex must not print environment variables because they may contain secrets."
+
+[[rules.prefix_rules]]
+pattern = [{ token = "psql" }]
+decision = "forbidden"
+justification = "Codex must not connect to live PostgreSQL unless a separate DB task is approved."
+
+[[rules.prefix_rules]]
+pattern = [{ token = "createdb" }]
+decision = "forbidden"
+justification = "Codex must not create live databases unless a separate DB task is approved."
+
+[[rules.prefix_rules]]
+pattern = [{ token = "dropdb" }]
+decision = "forbidden"
+justification = "Codex must not drop databases."
+
+[[rules.prefix_rules]]
+pattern = [{ token = "alembic" }, { token = "upgrade" }]
+decision = "forbidden"
+justification = "Codex must not apply live migrations unless a separate migration task is approved."
+
+[[rules.prefix_rules]]
+pattern = [{ token = ".venv/bin/alembic" }, { token = "upgrade" }]
+decision = "forbidden"
+justification = "Codex must not apply live migrations unless a separate migration task is approved."
+
+[[rules.prefix_rules]]
+pattern = [{ token = "rm" }, { token = "-rf" }]
+decision = "prompt"
+justification = "Recursive deletion requires explicit human review."
+
+[[rules.prefix_rules]]
+pattern = [{ token = "cat" }, { token = ".env" }]
+decision = "forbidden"
+justification = "Codex must not read .env files."
+
+[[rules.prefix_rules]]
+pattern = [{ token = "cat" }, { token = "~/.ssh/id_rsa" }]
+decision = "forbidden"
+justification = "Codex must not read private SSH keys."
+
+[[rules.prefix_rules]]
+pattern = [{ token = "cat" }, { token = "~/.ssh/id_ed25519" }]
+decision = "forbidden"
+justification = "Codex must not read private SSH keys."
+
+[[rules.prefix_rules]]
+pattern = [{ token = "cat" }, { token = "~/.bashrc" }]
+decision = "forbidden"
+justification = "Codex must not read or depend on shell profile secrets."
+
+[[rules.prefix_rules]]
+pattern = [{ token = "cat" }, { token = "~/.profile" }]
+decision = "forbidden"
+justification = "Codex must not read or depend on shell profile secrets."

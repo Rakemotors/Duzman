@@ -1,0 +1,38 @@
+# Duzman project-local Codex policy.
+# Purpose:
+# - allow normal project-local code/docs/tests work;
+# - keep Codex inside the repository workspace;
+# - keep network disabled by default;
+# - avoid passing secrets-heavy environment variables into subprocesses;
+# - require explicit approval for dangerous command classes via rules.
+
+sandbox_mode = "workspace-write"
+approval_policy = "on-request"
+
+[sandbox_workspace_write]
+network_access = false
+exclude_slash_tmp = true
+exclude_tmpdir_env_var = true
+
+[shell_environment_policy]
+inherit = "core"
+experimental_use_profile = false
+ignore_default_excludes = false
+exclude = [
+  "*KEY*",
+  "*TOKEN*",
+  "*SECRET*",
+  "*PASSWORD*",
+  "*PASS*",
+  "*CREDENTIAL*",
+  "*AUTH*",
+  "DATABASE_URL",
+  "ANTHROPIC_API_KEY",
+  "OPENAI_API_KEY",
+  "GOOGLE_API_KEY",
+  "TELEGRAM_BOT_TOKEN",
+  "DUZMAN_API_KEY",
+]
+
+[features]
+codex_git_commit = false
