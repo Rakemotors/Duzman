@@ -7,3 +7,7 @@
 ## Local development
 
 Use a project-local virtual environment only. See `docs/LOCAL_DEV_SETUP.md` for setup, dependency installation, pytest, and Alembic check commands.
+
+## Stage A public market data
+
+The current Day 2 collector foundation supports Binance and CoinGecko public market data normalization for offline-tested Stage A assets. It does not require API keys, does not use account or order endpoints, and does not place trades.

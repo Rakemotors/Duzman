@@ -36,7 +36,9 @@ Run pytest through the virtual environment:
 .venv/bin/python -m pytest
 ```
 
-Current status: pytest is runnable from `.venv` and the initial offline test suite passes.
+Current status: pytest is runnable from `.venv` and the offline test suite passes.
+
+Collector tests use static Binance and CoinGecko sample payloads. They do not call live APIs, require API keys, access trading endpoints, or place orders.
 
 ## Database configuration
 
@@ -76,3 +78,4 @@ Do not create or edit `.env` as part of routine test setup. A future task should
 
 - Alembic `current` needs a safe local database configuration before it can report a live database revision.
 - The current tests validate imports, SQLAlchemy metadata, Alembic file presence, and ORM/migration schema consistency without connecting to PostgreSQL.
+- Binance and CoinGecko collectors currently provide public-data request definitions and payload normalization only; scheduled live ingestion and database persistence remain separate tasks.
