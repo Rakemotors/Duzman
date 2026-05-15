@@ -36,9 +36,13 @@ Run pytest through the virtual environment:
 .venv/bin/python -m pytest
 ```
 
-Current status: pytest is runnable from `.venv`, but the repository currently has no test cases. Pytest exits with code 5 and reports `collected 0 items`.
+Current status: pytest is runnable from `.venv` and the initial offline test suite passes.
 
-Pytest also emits a `pytest-asyncio` deprecation warning because `asyncio_default_fixture_loop_scope` is not set. This is not a test failure, but it should be addressed when test configuration is expanded.
+## Database configuration
+
+Duzman does not provide a default database password or fallback connection string in code. Runtime commands that open database sessions require `DATABASE_URL` to be configured by the Operator.
+
+The offline test suite does not require `DATABASE_URL`, `.env`, or a live PostgreSQL connection.
 
 ## Run Alembic checks
 
@@ -70,7 +74,5 @@ Do not create or edit `.env` as part of routine test setup. A future task should
 
 ## Known current gaps
 
-- There are no actual test files yet.
 - Alembic `current` needs a safe local database configuration before it can report a live database revision.
-- No application code was changed for this setup task.
-
+- The current tests validate imports, SQLAlchemy metadata, Alembic file presence, and ORM/migration schema consistency without connecting to PostgreSQL.

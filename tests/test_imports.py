@@ -12,13 +12,9 @@ def test_duzman_package_imports():
 def test_settings_module_imports_without_repo_env(monkeypatch, tmp_path):
     """Settings should be importable without relying on repository .env files."""
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv(
-        "DATABASE_URL",
-        "postgresql://duzman_app:PASSWORD@localhost:5432/duzman",
-    )
+    monkeypatch.delenv("DATABASE_URL", raising=False)
     sys.modules.pop("duzman.settings", None)
 
     module = importlib.import_module("duzman.settings")
 
-    assert module.settings.database_url.startswith("postgresql://")
-
+    assert module.settings.database_url == ""
