@@ -246,10 +246,10 @@ Implemented:
 - Source health check persistence exists for source status, latency, and bounded errors.
 - Explicit market data collection job exists for public fetch, price snapshot persistence, and source health tracking.
 - Runtime scheduler entrypoint exists for constructing an APScheduler instance with the hourly job registered.
+- Structured logging exists for the public HTTP client, source health tracking, collection job, and explicit runtime entrypoint.
 
 Missing:
 
-- Structured logging usage.
 - Production scheduler startup wiring.
 - Controlled deployment/runtime documentation for applying migrations and launching the scheduler outside tests.
 

@@ -1,3 +1,5 @@
+import logging
+
 import httpx
 import pytest
 
@@ -20,6 +22,31 @@ def test_public_http_client_returns_json_from_successful_get():
     payload = client.get_json("https://example.test/public", {"symbol": "BTCUSDT"})
 
     assert payload == {"ok": True}
+
+
+def test_public_http_client_logs_without_query_params(caplog):
+    """Public HTTP logs should avoid query strings and parameter values."""
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(200, json={"ok": True})
+    )
+    client = PublicHttpClient(client=httpx.Client(transport=transport))
+
+    caplog.set_level(logging.INFO)
+    payload = client.get_json(
+        "https://example.test/public",
+        {"symbol": "BTCUSDT", "api_key": "SHOULD_NOT_APPEAR"},
+    )
+    duzman_log_text = "\n".join(
+        record.getMessage()
+        for record in caplog.records
+        if record.name.startswith("duzman.")
+    )
+
+    assert payload == {"ok": True}
+    assert "public_http_get_started host=example.test path=/public" in duzman_log_text
+    assert "public_http_get_succeeded host=example.test path=/public" in duzman_log_text
+    assert "api_key" not in duzman_log_text
+    assert "SHOULD_NOT_APPEAR" not in duzman_log_text
 
 
 def test_public_http_client_raises_for_non_2xx_response():

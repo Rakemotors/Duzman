@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from decimal import Decimal
+import logging
 
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
@@ -92,6 +93,23 @@ def test_collection_job_persists_successful_binance_and_coingecko_snapshots():
     assert {health.status for health in health_checks} == {SOURCE_HEALTH_OK}
 
 
+def test_collection_job_logs_cycle_and_source_success_without_raw_payloads(caplog):
+    """Collection logs should expose event summaries without raw payload bodies."""
+    session = _sqlite_session()
+    job = MarketDataCollectionJob(session=session, fetcher=FakePublicMarketDataFetcher())
+
+    caplog.set_level(logging.INFO)
+    result = job.run()
+
+    assert result.snapshots_created == 4
+    assert "collection_cycle_started" in caplog.text
+    assert "source_collection_succeeded source=binance" in caplog.text
+    assert "source_collection_succeeded source=coingecko" in caplog.text
+    assert "collection_cycle_completed" in caplog.text
+    assert "raw_payload" not in caplog.text
+    assert "lastPrice" not in caplog.text
+
+
 def test_collection_job_partial_failure_keeps_successful_source_snapshots():
     """A failed source should not prevent successful source persistence."""
     session = _sqlite_session()
@@ -119,6 +137,24 @@ def test_collection_job_partial_failure_keeps_successful_source_snapshots():
     }
 
 
+def test_collection_job_logs_partial_failure(caplog):
+    """Partial failure logs should identify the failed source and safe error."""
+    session = _sqlite_session()
+    job = MarketDataCollectionJob(
+        session=session,
+        fetcher=FakePublicMarketDataFetcher(fail_sources={"coingecko"}),
+    )
+
+    caplog.set_level(logging.INFO)
+    result = job.run()
+
+    assert result.failed_sources == ("coingecko",)
+    assert "source_collection_succeeded source=binance" in caplog.text
+    assert "source_collection_failed source=coingecko" in caplog.text
+    assert "error_type=RuntimeError" in caplog.text
+    assert "safe_error_message=coingecko unavailable" in caplog.text
+
+
 def test_collection_job_malformed_payload_does_not_persist_bad_data():
     """Malformed source data should record failed health and persist no snapshots."""
     session = _sqlite_session()
@@ -144,4 +180,3 @@ def test_collection_job_malformed_payload_does_not_persist_bad_data():
         "binance": SOURCE_HEALTH_FAILED,
         "coingecko": SOURCE_HEALTH_FAILED,
     }
-

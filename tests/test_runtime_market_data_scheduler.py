@@ -7,7 +7,10 @@ from sqlalchemy.orm import Session
 
 from duzman.collectors import MarketDataSnapshot
 from duzman.db.models import Asset, PriceSnapshot, SourceHealthCheck
-from duzman.runtime.market_data_scheduler import build_market_data_scheduler
+from duzman.runtime.market_data_scheduler import (
+    build_market_data_scheduler,
+    run_market_data_scheduler_forever,
+)
 from duzman.scheduler.market_data_jobs import HOURLY_MARKET_DATA_INGESTION_JOB_ID
 
 
@@ -99,3 +102,40 @@ def test_registered_runtime_job_can_run_with_injected_offline_dependencies():
     assert result.health_checks_created == 2
     assert {snapshot.source for snapshot in snapshots} == {"binance", "coingecko"}
     assert {health.source for health in health_checks} == {"binance", "coingecko"}
+
+
+def test_runtime_forever_configures_logging_only_when_explicitly_called(monkeypatch):
+    """The blocking runtime path should configure logging only during explicit run."""
+    import duzman.runtime.market_data_scheduler as runtime_module
+
+    calls: list[str] = []
+
+    class FakeBlockingScheduler:
+        def __init__(self, timezone):
+            self.timezone = timezone
+
+        def start(self):
+            calls.append("start")
+            raise RuntimeError("stop test scheduler")
+
+    def fake_build_market_data_scheduler(**kwargs):
+        calls.append("build")
+        return kwargs["scheduler"]
+
+    monkeypatch.setattr(runtime_module, "configure_logging", lambda: calls.append("configure"))
+    monkeypatch.setattr(runtime_module, "BlockingScheduler", FakeBlockingScheduler)
+    monkeypatch.setattr(
+        runtime_module,
+        "build_market_data_scheduler",
+        fake_build_market_data_scheduler,
+    )
+
+    try:
+        run_market_data_scheduler_forever(
+            session_factory=lambda: None,
+            fetcher_factory=FakePublicMarketDataFetcher,
+        )
+    except RuntimeError as exc:
+        assert str(exc) == "stop test scheduler"
+
+    assert calls == ["configure", "build", "start"]

@@ -19,3 +19,5 @@ Public Binance and CoinGecko fetchers use a small GET-only HTTP abstraction and 
 An explicit market data collection job wires public fetches, price snapshot persistence, and source health tracking for BTC/ETH. It is callable by APScheduler registration, but no scheduler starts automatically.
 
 The runtime module `duzman.runtime.market_data_scheduler` can build a scheduler with the hourly market data job registered. It does not install a service, start on import, apply migrations, require API keys, or place orders.
+
+Structured logging is available for the public HTTP client, source health tracking, collection job, and explicit scheduler runtime. Logging uses safe event-style messages, avoids raw payload bodies and query parameters, and is configured only when a runtime entrypoint is explicitly invoked.

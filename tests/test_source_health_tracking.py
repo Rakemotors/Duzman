@@ -1,3 +1,5 @@
+import logging
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
@@ -26,6 +28,18 @@ def test_source_health_tracking_records_ok_on_success():
     assert health_check.source == "binance"
 
 
+def test_source_health_tracking_logs_ok_status(caplog):
+    """Successful source health writes should emit safe structured logs."""
+    session = _sqlite_session()
+    service = SourceHealthTrackingService(session)
+
+    caplog.set_level(logging.INFO)
+    result = service.track_fetch("binance", lambda: "payload")
+
+    assert result.ok is True
+    assert "source_health_recorded_ok source=binance" in caplog.text
+
+
 def test_source_health_tracking_records_failed_on_failure():
     """Failed fetch callables should record failed health and explicit result."""
     session = _sqlite_session()
@@ -43,3 +57,19 @@ def test_source_health_tracking_records_failed_on_failure():
     assert health_check.source == "coingecko"
     assert health_check.error_message == "public source unavailable"
 
+
+def test_source_health_tracking_logs_failed_status(caplog):
+    """Failed source health writes should emit bounded error details."""
+    session = _sqlite_session()
+    service = SourceHealthTrackingService(session)
+
+    def fail_fetch():
+        raise RuntimeError("public source unavailable")
+
+    caplog.set_level(logging.INFO)
+    result = service.track_fetch("coingecko", fail_fetch)
+
+    assert result.ok is False
+    assert result.error_type == "RuntimeError"
+    assert "source_health_recorded_failed source=coingecko" in caplog.text
+    assert "safe_error_message=public source unavailable" in caplog.text

@@ -6,6 +6,7 @@ from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.schedulers.blocking import BlockingScheduler
 from sqlalchemy.orm import Session
 
+from duzman.logging_config import configure_logging
 from duzman.scheduler.market_data_jobs import register_hourly_market_data_ingestion_job
 from duzman.services import PublicMarketDataFetcher, run_public_market_data_ingestion_job
 
@@ -49,8 +50,11 @@ def build_market_data_scheduler(
 def run_market_data_scheduler_forever(
     session_factory: SessionFactory | None = None,
     fetcher_factory: FetcherFactory | None = None,
+    configure_runtime_logging: bool = True,
 ) -> None:
     """Start the blocking market data scheduler when explicitly invoked."""
+    if configure_runtime_logging:
+        configure_logging()
     scheduler = BlockingScheduler(timezone=UTC)
     build_market_data_scheduler(
         session_factory=session_factory,

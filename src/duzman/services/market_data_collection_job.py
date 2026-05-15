@@ -1,10 +1,13 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import logging
+from time import monotonic
 from typing import Sequence
 
 from sqlalchemy.orm import Session
 
 from duzman.collectors import MarketDataSnapshot
+from duzman.logging_config import get_logger, log_event
 from duzman.repositories import PriceSnapshotRepository
 from duzman.services.market_data_fetchers import PublicMarketDataFetcher
 from duzman.services.source_health_tracking import SourceHealthTrackingService
@@ -46,6 +49,7 @@ class MarketDataCollectionJob:
         self.source_health_tracker = (
             source_health_tracker or SourceHealthTrackingService(session)
         )
+        self.logger = get_logger(__name__)
 
     def run(
         self,
@@ -79,24 +83,57 @@ class MarketDataCollectionJob:
                 ],
             ),
         )
+        log_event(
+            self.logger,
+            "collection_cycle_started",
+            attempted_sources=tuple(source for source, _ in source_plan),
+        )
 
         for source, fetch_snapshots in source_plan:
             attempted_sources.append(source)
             health_checks_created += 1
+            source_started_at = monotonic()
+            log_event(self.logger, "source_collection_started", source=source)
             health_result = self.source_health_tracker.track_fetch(
                 source,
                 fetch_snapshots,
             )
+            latency_ms = self._elapsed_ms(source_started_at)
             if not health_result.ok:
                 failed_sources.append(source)
                 errors[source] = health_result.error_message or "unknown error"
+                log_event(
+                    self.logger,
+                    "source_collection_failed",
+                    level=logging.ERROR,
+                    source=source,
+                    latency_ms=latency_ms,
+                    error_type=health_result.error_type,
+                    safe_error_message=errors[source],
+                )
                 continue
 
             created_for_source = self._persist_snapshots(health_result.value or ())
             snapshots_created += created_for_source
             successful_sources.append(source)
+            log_event(
+                self.logger,
+                "source_collection_succeeded",
+                source=source,
+                snapshots_created=created_for_source,
+                latency_ms=latency_ms,
+            )
 
         finished_at = datetime.now(timezone.utc)
+        log_event(
+            self.logger,
+            "collection_cycle_completed",
+            attempted_sources=tuple(attempted_sources),
+            successful_sources=tuple(successful_sources),
+            failed_sources=tuple(failed_sources),
+            snapshots_created=snapshots_created,
+            health_checks_created=health_checks_created,
+        )
         return MarketDataCollectionResult(
             started_at=started_at,
             finished_at=finished_at,
@@ -114,6 +151,9 @@ class MarketDataCollectionJob:
         self.session.commit()
         return len(snapshots)
 
+    def _elapsed_ms(self, started_at: float) -> int:
+        return max(0, int((monotonic() - started_at) * 1000))
+
 
 def run_public_market_data_ingestion_job(
     session: Session,
@@ -126,4 +166,3 @@ def run_public_market_data_ingestion_job(
         binance_symbols=binance_symbols,
         coingecko_coin_ids=coingecko_coin_ids,
     )
-
