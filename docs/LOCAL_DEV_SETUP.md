@@ -78,4 +78,6 @@ Do not create or edit `.env` as part of routine test setup. A future task should
 
 - Alembic `current` needs a safe local database configuration before it can report a live database revision.
 - The current tests validate imports, SQLAlchemy metadata, Alembic file presence, and ORM/migration schema consistency without connecting to PostgreSQL.
-- Binance and CoinGecko collectors currently provide public-data request definitions and payload normalization only; scheduled live ingestion and database persistence remain separate tasks.
+- Binance and CoinGecko collectors currently provide public-data request definitions and payload normalization only.
+- The ingestion service persists supplied/static payloads to `price_snapshots` in tests without live API calls.
+- The scheduler helper registers an hourly ingestion job definition but does not start production scheduling automatically.

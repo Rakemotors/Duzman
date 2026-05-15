@@ -238,15 +238,16 @@ Implemented:
 - Alembic configuration exists.
 - Initial migration exists.
 - `price_snapshots` table exists in ORM and migration.
+- Binance and CoinGecko public-data collector foundations exist.
+- Supplied-payload ingestion can persist normalized snapshots through a repository.
+- APScheduler job registration foundation exists for hourly ingestion at minute 17.
 
 Missing:
 
-- `BinanceCollector`.
-- `CoinGeckoCollector` fallback.
-- APScheduler hourly schedule at `XX:17 UTC`.
+- Live HTTP fetch execution for Binance and CoinGecko.
 - Structured logging usage.
-- Collection/persistence workflow.
-- Tests for Day 2 behavior.
+- Production scheduler startup wiring.
+- Source health updates during ingestion.
 
 ## 17. Day 3 readiness assessment
 
@@ -319,4 +320,3 @@ Reason: the active environment cannot run pytest or Alembic, so establishing a l
 - `sed -n '1,120p' src/duzman/__init__.py`
 - `sed -n '1,120p' tests/__init__.py`
 - `mkdir -p docs`
-

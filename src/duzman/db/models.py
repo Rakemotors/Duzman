@@ -4,7 +4,7 @@ from typing import Optional
 
 from sqlalchemy import (
     BigInteger, Boolean, Date, DateTime, Index, Integer,
-    Numeric, String, Text, ForeignKey,
+    JSON, Numeric, String, Text, ForeignKey, func,
 )
 from sqlalchemy.dialects.postgresql import INET, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -26,17 +26,32 @@ class Asset(Base):
 class PriceSnapshot(Base):
     __tablename__ = "price_snapshots"
     __table_args__ = (
-        Index("ix_price_snapshots_ts_asset", "ts", "asset"),
+        Index(
+            "ix_price_snapshots_source_symbol_collected_at",
+            "source",
+            "symbol",
+            "collected_at",
+        ),
+        Index("ix_price_snapshots_collected_at", "collected_at"),
+        Index("ix_price_snapshots_source", "source"),
     )
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    asset: Mapped[str] = mapped_column(String(10), ForeignKey("assets.symbol"), nullable=False)
-    price_usd: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 8))
-    volume_24h_usd: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 2))
+    id: Mapped[int] = mapped_column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        primary_key=True,
+        autoincrement=True,
+    )
+    source: Mapped[str] = mapped_column(String(20), nullable=False)
+    symbol: Mapped[str] = mapped_column(String(10), ForeignKey("assets.symbol"), nullable=False)
+    quote_currency: Mapped[str] = mapped_column(String(10), nullable=False)
+    price: Mapped[Decimal] = mapped_column(Numeric(20, 8), nullable=False)
+    collected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    raw_payload: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    volume_24h_quote: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 2))
     price_change_24h_pct: Mapped[Optional[Decimal]] = mapped_column(Numeric(8, 4))
-    price_change_7d_pct: Mapped[Optional[Decimal]] = mapped_column(Numeric(8, 4))
-    source: Mapped[Optional[str]] = mapped_column(String(20))
 
 
 class Indicator(Base):
