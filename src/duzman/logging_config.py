@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Mapping
 from typing import Any
 
 
 DEFAULT_LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
 DEFAULT_MAX_ERROR_MESSAGE_LENGTH = 500
+SENSITIVE_FIELD_PATTERN = re.compile(
+    r"\b(api[_-]?key|access[_-]?token|token|password|secret|seed[_-]?phrase|private[_-]?key)"
+    r"\s*=\s*[^\s&]+",
+    flags=re.IGNORECASE,
+)
 
 
 def configure_logging(level: int = logging.INFO) -> None:
@@ -27,6 +33,7 @@ def safe_error_message(
 ) -> str:
     """Return a bounded one-line error message suitable for logs and health checks."""
     message = str(error).replace("\n", " ").replace("\r", " ").replace("\t", " ")
+    message = SENSITIVE_FIELD_PATTERN.sub(_redacted_sensitive_field, message)
     if max_length <= 0:
         return ""
     if len(message) <= max_length:
@@ -63,3 +70,7 @@ def _format_value(value: Any) -> str:
     if isinstance(value, (list, tuple, set, frozenset)):
         return ",".join(str(item) for item in value)
     return str(value).replace("\n", " ").replace("\r", " ").replace("\t", " ")
+
+
+def _redacted_sensitive_field(match: re.Match[str]) -> str:
+    return f"{match.group(1)}=<redacted>"

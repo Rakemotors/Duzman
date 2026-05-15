@@ -28,3 +28,11 @@ def test_safe_error_message_bounds_and_flattens_long_errors():
     assert len(message) == 32
     assert "\n" not in message
     assert message.endswith("...")
+
+
+def test_safe_error_message_redacts_secret_like_fields():
+    """Secret-looking key/value fragments should not reach logs."""
+    message = safe_error_message("request failed token=SHOULD_NOT_APPEAR")
+
+    assert "SHOULD_NOT_APPEAR" not in message
+    assert "token=<redacted>" in message

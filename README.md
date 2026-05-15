@@ -21,3 +21,11 @@ An explicit market data collection job wires public fetches, price snapshot pers
 The runtime module `duzman.runtime.market_data_scheduler` can build a scheduler with the hourly market data job registered. It does not install a service, start on import, apply migrations, require API keys, or place orders.
 
 Structured logging is available for the public HTTP client, source health tracking, collection job, and explicit scheduler runtime. Logging uses safe event-style messages, avoids raw payload bodies and query parameters, and is configured only when a runtime entrypoint is explicitly invoked.
+
+Run one manual collection cycle with:
+
+```bash
+.venv/bin/python -m duzman.runtime.run_market_data_collection_once
+```
+
+The command runs exactly one public Binance/CoinGecko collection cycle, writes `price_snapshots` and source health checks through the existing services, configures structured logging explicitly, and exits. It does not start APScheduler, install services, run migrations, require exchange API keys, or place orders.

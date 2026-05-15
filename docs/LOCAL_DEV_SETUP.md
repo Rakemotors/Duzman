@@ -76,6 +76,24 @@ KeyError: 'url'
 
 Do not create or edit `.env` as part of routine test setup. A future task should define a safe local database configuration pattern for development and Alembic checks.
 
+## Run one manual collection cycle
+
+After the Operator has configured database access outside this test workflow, run exactly one public market-data collection cycle with:
+
+```bash
+.venv/bin/python -m duzman.runtime.run_market_data_collection_once
+```
+
+Optional log level:
+
+```bash
+.venv/bin/python -m duzman.runtime.run_market_data_collection_once --log-level INFO
+```
+
+The command configures structured logging only when explicitly invoked. Logs use safe event names and key/value fields, avoid raw payload bodies and query parameters, and do not print environment variables or secrets.
+
+The command does not start APScheduler, install systemd, add Docker, add Redis/Celery/queues, run database migrations, require exchange API keys, access private account/order endpoints, or place trades.
+
 ## Known current gaps
 
 - Alembic `current` needs a safe local database configuration before it can report a live database revision.
@@ -88,3 +106,4 @@ Do not create or edit `.env` as part of routine test setup. A future task should
 - Tests do not apply live database migrations or start a production scheduler.
 - The runtime scheduler entrypoint can build an APScheduler instance for the market data job, but it does not auto-start, install systemd, add Docker, add Redis/Celery/queues, or apply migrations.
 - Structured logging exists for the public HTTP client, source health tracking, collection job, and explicit runtime entrypoint. Logs use safe event names and key/value fields, avoid raw payload bodies and query parameters, and do not require API keys or any secret configuration.
+- The one-shot collection command can run one explicit collection cycle, but it requires safe runtime database configuration and does not apply migrations automatically.
