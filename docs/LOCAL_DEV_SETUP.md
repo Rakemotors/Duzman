@@ -40,6 +40,8 @@ Current status: pytest is runnable from `.venv` and the offline test suite passe
 
 Collector tests use static Binance and CoinGecko sample payloads. They do not call live APIs, require API keys, access trading endpoints, or place orders.
 
+HTTP/fetcher tests use mocked `httpx` transports. They do not call live Binance or CoinGecko APIs.
+
 ## Database configuration
 
 Duzman does not provide a default database password or fallback connection string in code. Runtime commands that open database sessions require `DATABASE_URL` to be configured by the Operator.
@@ -81,3 +83,4 @@ Do not create or edit `.env` as part of routine test setup. A future task should
 - Binance and CoinGecko collectors currently provide public-data request definitions and payload normalization only.
 - The ingestion service persists supplied/static payloads to `price_snapshots` in tests without live API calls.
 - The scheduler helper registers an hourly ingestion job definition but does not start production scheduling automatically.
+- Public HTTP fetchers exist for explicit public market-data requests, with source health tracking for status, latency, and bounded error messages.

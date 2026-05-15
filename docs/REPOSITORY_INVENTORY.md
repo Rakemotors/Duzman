@@ -241,13 +241,15 @@ Implemented:
 - Binance and CoinGecko public-data collector foundations exist.
 - Supplied-payload ingestion can persist normalized snapshots through a repository.
 - APScheduler job registration foundation exists for hourly ingestion at minute 17.
+- GET-only public HTTP client abstraction exists.
+- Binance and CoinGecko public fetcher service exists and is tested with mocked HTTP.
+- Source health check persistence exists for source status, latency, and bounded errors.
 
 Missing:
 
-- Live HTTP fetch execution for Binance and CoinGecko.
 - Structured logging usage.
 - Production scheduler startup wiring.
-- Source health updates during ingestion.
+- Automatic ingestion flow that combines live public fetches, price persistence, and source health in scheduled runtime.
 
 ## 17. Day 3 readiness assessment
 

@@ -18,6 +18,7 @@ EXPECTED_STAGE_A_TABLES = {
     "alerts_sent",
     "api_requests",
     "source_health",
+    "source_health_checks",
 }
 
 

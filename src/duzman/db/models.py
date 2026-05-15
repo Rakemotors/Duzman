@@ -194,3 +194,26 @@ class SourceHealth(Base):
     last_failure: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     consecutive_failures: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
+
+
+class SourceHealthCheck(Base):
+    __tablename__ = "source_health_checks"
+    __table_args__ = (
+        Index("ix_source_health_checks_source_checked_at", "source", "checked_at"),
+        Index("ix_source_health_checks_status", "status"),
+        Index("ix_source_health_checks_checked_at", "checked_at"),
+    )
+
+    id: Mapped[int] = mapped_column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        primary_key=True,
+        autoincrement=True,
+    )
+    source: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    latency_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    error_message: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
