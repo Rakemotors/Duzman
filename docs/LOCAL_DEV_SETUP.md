@@ -86,3 +86,4 @@ Do not create or edit `.env` as part of routine test setup. A future task should
 - Public HTTP fetchers exist for explicit public market-data requests, with source health tracking for status, latency, and bounded error messages.
 - The market data collection job wires public fetchers, `price_snapshots` persistence, and source health checks in offline tests with fake fetchers.
 - Tests do not apply live database migrations or start a production scheduler.
+- The runtime scheduler entrypoint can build an APScheduler instance for the market data job, but it does not auto-start, install systemd, add Docker, add Redis/Celery/queues, or apply migrations.

@@ -17,3 +17,5 @@ The current Day 2 collector foundation supports Binance and CoinGecko public mar
 Public Binance and CoinGecko fetchers use a small GET-only HTTP abstraction and remain public-data only: no API keys, private endpoints, account endpoints, order endpoints, or trading actions. Source health checks can record source status, latency, and bounded error messages for explicit fetch attempts.
 
 An explicit market data collection job wires public fetches, price snapshot persistence, and source health tracking for BTC/ETH. It is callable by APScheduler registration, but no scheduler starts automatically.
+
+The runtime module `duzman.runtime.market_data_scheduler` can build a scheduler with the hourly market data job registered. It does not install a service, start on import, apply migrations, require API keys, or place orders.

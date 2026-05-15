@@ -245,12 +245,13 @@ Implemented:
 - Binance and CoinGecko public fetcher service exists and is tested with mocked HTTP.
 - Source health check persistence exists for source status, latency, and bounded errors.
 - Explicit market data collection job exists for public fetch, price snapshot persistence, and source health tracking.
+- Runtime scheduler entrypoint exists for constructing an APScheduler instance with the hourly job registered.
 
 Missing:
 
 - Structured logging usage.
 - Production scheduler startup wiring.
-- Runtime entrypoint that supplies real DB/session dependencies to the scheduler job.
+- Controlled deployment/runtime documentation for applying migrations and launching the scheduler outside tests.
 
 ## 17. Day 3 readiness assessment
 
