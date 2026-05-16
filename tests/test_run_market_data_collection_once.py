@@ -81,6 +81,51 @@ def test_one_shot_main_returns_nonzero_for_unhandled_failure(caplog):
     assert "SHOULD_NOT_APPEAR" not in caplog.text
 
 
+def test_one_shot_main_returns_nonzero_for_missing_db_config(caplog):
+    """Missing database configuration should fail before DB or HTTP work starts."""
+    import duzman.runtime.run_market_data_collection_once as one_shot
+
+    def missing_database_session_factory():
+        raise RuntimeError("DATABASE_URL must be configured before opening sessions")
+
+    def fail_if_fetcher_is_created():
+        raise AssertionError("fetcher should not be created without DB config")
+
+    caplog.set_level(logging.INFO)
+    exit_code = one_shot.main(
+        session_factory=missing_database_session_factory,
+        fetcher_factory=fail_if_fetcher_is_created,
+    )
+
+    assert exit_code == 1
+    assert "one_shot_collection_command_failed" in caplog.text
+    assert "error_type=RuntimeError" in caplog.text
+    assert "DATABASE_URL must be configured" in caplog.text
+
+
+def test_one_shot_main_redacts_secret_like_setup_failures(caplog):
+    """Setup failure logs should redact placeholder secret-looking values."""
+    import duzman.runtime.run_market_data_collection_once as one_shot
+
+    def fail_with_secret_like_values():
+        raise RuntimeError(
+            "password=fake-db-password token=fake-token "
+            "DATABASE_URL=postgresql://fake_user:fake_password@localhost/fake_db"
+        )
+
+    caplog.set_level(logging.INFO)
+    exit_code = one_shot.main(collection_runner=fail_with_secret_like_values)
+
+    assert exit_code == 1
+    assert "one_shot_collection_command_failed" in caplog.text
+    assert "fake-db-password" not in caplog.text
+    assert "fake-token" not in caplog.text
+    assert "fake_password" not in caplog.text
+    assert "password=<redacted>" in caplog.text
+    assert "token=<redacted>" in caplog.text
+    assert "DATABASE_URL=<redacted>" in caplog.text
+
+
 def test_one_shot_main_does_not_start_scheduler(monkeypatch):
     """The one-shot command should not construct or start APScheduler."""
     import duzman.runtime.market_data_scheduler as scheduler_runtime

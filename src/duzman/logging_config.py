@@ -11,7 +11,7 @@ from typing import Any
 DEFAULT_LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
 DEFAULT_MAX_ERROR_MESSAGE_LENGTH = 500
 SENSITIVE_FIELD_PATTERN = re.compile(
-    r"\b(api[_-]?key|access[_-]?token|token|password|secret|seed[_-]?phrase|private[_-]?key)"
+    r"\b(api[_-]?key|access[_-]?token|token|password|secret|seed[_-]?phrase|private[_-]?key|database[_-]?url)"
     r"\s*=\s*[^\s&]+",
     flags=re.IGNORECASE,
 )

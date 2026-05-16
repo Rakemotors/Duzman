@@ -32,7 +32,12 @@ def test_safe_error_message_bounds_and_flattens_long_errors():
 
 def test_safe_error_message_redacts_secret_like_fields():
     """Secret-looking key/value fragments should not reach logs."""
-    message = safe_error_message("request failed token=SHOULD_NOT_APPEAR")
+    message = safe_error_message(
+        "request failed token=SHOULD_NOT_APPEAR "
+        "DATABASE_URL=postgresql://fake_user:fake_password@localhost/fake_db"
+    )
 
     assert "SHOULD_NOT_APPEAR" not in message
+    assert "fake_password" not in message
     assert "token=<redacted>" in message
+    assert "DATABASE_URL=<redacted>" in message
