@@ -15,6 +15,7 @@ from duzman.collectors.bybit import (
     OpenInterestRecord,
 )
 from duzman.collectors.coingecko import CoinGeckoCollector
+from duzman.collectors.okx import OKXCollector
 
 __all__ = [
     "BinanceCollector",
@@ -26,6 +27,7 @@ __all__ = [
     "MarketDataPayloadError",
     "MarketDataRequest",
     "MarketDataSnapshot",
+    "OKXCollector",
     "OpenInterestRecord",
     "UnsupportedMarketSymbolError",
 ]
