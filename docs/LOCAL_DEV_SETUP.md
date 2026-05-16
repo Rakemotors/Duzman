@@ -141,6 +141,20 @@ GET /api/market-data/ingestion-status
 
 These routes do not start APScheduler, trigger collection, call live Binance/CoinGecko APIs, run database migrations, require exchange API keys, access private account/order endpoints, or place trades. They require an application database session at runtime and are tested offline with local test databases.
 
+Verify read-only API app creation and route registration offline:
+
+```bash
+.venv/bin/python -m duzman.runtime.verify_read_only_api
+```
+
+Expected output:
+
+```text
+READ_ONLY_API_RUNTIME_CHECK_OK
+```
+
+This smoke check instantiates the FastAPI app and verifies route registration only. It does not require `DATABASE_URL`, start APScheduler, call Binance/CoinGecko, run migrations, bind a public port, or place trades.
+
 ## Known current gaps
 
 - Alembic `current` needs a safe local database configuration before it can report a live database revision.

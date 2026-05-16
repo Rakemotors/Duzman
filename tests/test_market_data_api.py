@@ -11,6 +11,7 @@ from duzman.api.dependencies import get_api_db
 from duzman.collectors import MarketDataSnapshot
 from duzman.db.models import Asset, PriceSnapshot, SourceHealthCheck
 from duzman.repositories import PriceSnapshotRepository, SourceHealthRepository
+from duzman.runtime.verify_read_only_api import verify_read_only_api_app
 
 
 def _api_client_with_seed_data() -> tuple[TestClient, sessionmaker]:
@@ -186,3 +187,30 @@ def test_market_data_api_does_not_start_scheduler_or_fetch_network(monkeypatch):
     client, _ = _api_client_with_seed_data()
 
     assert client.get("/api/market-data/ingestion-status").status_code == 200
+
+
+def test_api_app_creation_registers_routes_without_runtime_side_effects(monkeypatch):
+    """App creation should register routes without scheduler or public HTTP work."""
+    import duzman.runtime.market_data_scheduler as scheduler_runtime
+    from duzman.services.public_http_client import PublicHttpClient
+
+    def fail_if_scheduler_runs(*args, **kwargs):
+        raise AssertionError("API app creation must not start schedulers")
+
+    def fail_if_network_runs(*args, **kwargs):
+        raise AssertionError("API app creation must not call public HTTP")
+
+    monkeypatch.setattr(
+        scheduler_runtime,
+        "run_market_data_scheduler_forever",
+        fail_if_scheduler_runs,
+    )
+    monkeypatch.setattr(PublicHttpClient, "get_json", fail_if_network_runs)
+
+    routes = verify_read_only_api_app()
+
+    assert routes == (
+        "/api/market-data/ingestion-status",
+        "/api/market-data/prices/latest",
+        "/api/market-data/source-health",
+    )

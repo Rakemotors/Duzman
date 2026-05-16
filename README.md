@@ -43,3 +43,11 @@ The FastAPI app factory `duzman.api.create_app()` registers read-only market dat
 - `GET /api/market-data/ingestion-status`
 
 These routes read already persisted public market data only. They do not start APScheduler, run collection, call live exchange APIs, run migrations, place orders, or access private exchange/account endpoints.
+
+Verify route registration offline with:
+
+```bash
+.venv/bin/python -m duzman.runtime.verify_read_only_api
+```
+
+Expected output: `READ_ONLY_API_RUNTIME_CHECK_OK`.
