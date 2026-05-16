@@ -75,6 +75,34 @@ Do not:
 
 If runtime database configuration is missing, the one-shot command should fail safely before opening a database session and log a controlled failure. It does not need exchange API keys because the current collectors use public market-data endpoints only.
 
+## Operator-controlled local database bootstrap
+
+This section documents a safe local PostgreSQL bootstrap procedure for a human Operator to run later. It is not executed by Codex during documentation, test, or review tasks.
+
+Use `DATABASE_URL` only as an inline prefix for the one command that needs it. Do not store it in `.env`, shell profiles, `/etc/environment`, shared notes, issue trackers, docs, logs, or chat transcripts.
+
+Every command below uses placeholder values only. Replace placeholders only in a private Operator-controlled shell:
+
+```bash
+DATABASE_URL="postgresql+psycopg://duzman_user:REPLACE_WITH_PASSWORD@localhost:5432/duzman" \
+.venv/bin/python -m duzman.runtime.run_market_data_collection_once
+```
+
+Safe operator sequence for a later explicitly approved local bootstrap:
+
+1. Confirm the repository is clean with `git status`.
+2. Confirm tests and offline checks still pass without any database secret:
+   - `.venv/bin/python -m pytest -q`
+   - `.venv/bin/alembic heads`
+   - `.venv/bin/python -m duzman.runtime.verify_read_only_api`
+3. Prepare the local PostgreSQL database outside Codex, without pasting credentials into Codex, ChatGPT, docs, logs, or issue trackers.
+4. Apply Alembic migrations only after separate explicit human approval for a live database migration step. Use the same one-command inline `DATABASE_URL` pattern and do not ask Codex to run this command without that separate approval.
+5. Run one manual public market-data collection cycle with `DATABASE_URL` provided only for that command invocation.
+6. Verify read-only API route registration offline with `.venv/bin/python -m duzman.runtime.verify_read_only_api`, or query the read-only routes only through an explicitly approved local app runner.
+7. Avoid printing secrets. Do not use `env`, `printenv`, shell profile exports, or committed config files to inspect or persist `DATABASE_URL`.
+
+The one-shot collection command does not create databases, run migrations, start APScheduler, install services, start Docker, bind public ports, or place trades. It expects the Operator to provide an already prepared database connection for the single command invocation.
+
 ## Run Alembic checks
 
 Show migration history:
@@ -101,7 +129,7 @@ Current status: this command was attempted and fails before connecting to Postgr
 KeyError: 'url'
 ```
 
-Do not create or edit `.env` as part of routine test setup. A future task should define a safe local database configuration pattern for development and Alembic checks.
+Do not create or edit `.env` as part of routine test setup. Live Alembic migration commands require separate explicit human approval and an Operator-controlled inline `DATABASE_URL`.
 
 ## Run one manual collection cycle
 

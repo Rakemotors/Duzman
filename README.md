@@ -34,6 +34,8 @@ The command runs exactly one public Binance/CoinGecko collection cycle, writes `
 
 Runtime database access is supplied through `DATABASE_URL`. Use placeholder-only examples in docs and never commit real passwords, paste secrets into Codex/ChatGPT logs, or store database passwords in shell profiles. Live migrations are a separate controlled step and are not run by the one-shot command.
 
+For local database preparation, follow the operator-controlled checklist in `docs/LOCAL_DEV_SETUP.md`. It documents placeholder-only `DATABASE_URL` usage, keeps secrets out of `.env` and shell profiles, and treats live migrations as a separately approved step.
+
 ## Read-only API
 
 The FastAPI app factory `duzman.api.create_app()` registers read-only market data routes:
