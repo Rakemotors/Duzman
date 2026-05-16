@@ -7,6 +7,9 @@ name = "duzman"
 version = "0.1.0"
 description = "Personal crypto metrics monitor"
 requires-python = ">=3.12"
+dependencies = [
+    "pandas-ta",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

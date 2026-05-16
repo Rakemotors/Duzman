@@ -24,6 +24,13 @@ src-layout, editable install через .venv/bin/python -m pip install -e .
 - CoinGeckoCollector — fallback для цен и BTC dominance (последнее ещё не подключено)
 - OKXCollector — публичные derivatives endpoints OKX v5 для funding rate, open interest и long/short ratio; не собирает спот-цены
 
+### Indicators
+
+- RSI — pandas-ta RSI по close, default period=14
+- Stochastic — pandas-ta Stochastic по high/low/close, k=14, d=3, smoothing=3
+- Realized Volatility 24h — annualized volatility по 1h close returns, минимум 25 свечей
+- Premium/Discount — (perp_price - spot_price) / spot_price * 100
+
 ### Read-only API
 
 - GET /api/market-data/prices/latest — последние цены из price_snapshots
