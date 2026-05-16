@@ -53,3 +53,14 @@ Verify route registration offline with:
 ```
 
 Expected output: `READ_ONLY_API_RUNTIME_CHECK_OK`.
+
+Verify an operator-provided local PostgreSQL database connection and required
+read-only tables with:
+
+```bash
+DATABASE_URL="postgresql+psycopg://duzman_user:REPLACE_WITH_PASSWORD@localhost:5432/duzman" \
+.venv/bin/python -m duzman.runtime.verify_local_database
+```
+
+This command performs read-only checks only. It does not run migrations, write
+rows, start APScheduler, call external APIs, or print the database URL.

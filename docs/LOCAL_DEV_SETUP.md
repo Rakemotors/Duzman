@@ -97,11 +97,27 @@ Safe operator sequence for a later explicitly approved local bootstrap:
    - `.venv/bin/python -m duzman.runtime.verify_read_only_api`
 3. Prepare the local PostgreSQL database outside Codex, without pasting credentials into Codex, ChatGPT, docs, logs, or issue trackers.
 4. Apply Alembic migrations only after separate explicit human approval for a live database migration step. Use the same one-command inline `DATABASE_URL` pattern and do not ask Codex to run this command without that separate approval.
-5. Run one manual public market-data collection cycle with `DATABASE_URL` provided only for that command invocation.
-6. Verify read-only API route registration offline with `.venv/bin/python -m duzman.runtime.verify_read_only_api`, or query the read-only routes only through an explicitly approved local app runner.
-7. Avoid printing secrets. Do not use `env`, `printenv`, shell profile exports, or committed config files to inspect or persist `DATABASE_URL`.
+5. Verify local database connectivity and required read-only tables with `DATABASE_URL` provided only for that command invocation.
+6. Run one manual public market-data collection cycle with `DATABASE_URL` provided only for that command invocation.
+7. Verify read-only API route registration offline with `.venv/bin/python -m duzman.runtime.verify_read_only_api`, or query the read-only routes only through an explicitly approved local app runner.
+8. Avoid printing secrets. Do not use `env`, `printenv`, shell profile exports, or committed config files to inspect or persist `DATABASE_URL`.
 
 The one-shot collection command does not create databases, run migrations, start APScheduler, install services, start Docker, bind public ports, or place trades. It expects the Operator to provide an already prepared database connection for the single command invocation.
+
+Verify the prepared local database with:
+
+```bash
+DATABASE_URL="postgresql+psycopg://duzman_user:REPLACE_WITH_PASSWORD@localhost:5432/duzman" \
+.venv/bin/python -m duzman.runtime.verify_local_database
+```
+
+Expected success output:
+
+```text
+LOCAL_DATABASE_CHECK_OK confirmed_tables=price_snapshots,source_health_checks
+```
+
+The local database verification command checks only read-only connectivity and table presence for `price_snapshots` and `source_health_checks`. It executes a trivial read-only query, inspects schema metadata, and exits. It does not run Alembic migrations, create tables, write rows, start FastAPI, start APScheduler, call Binance/CoinGecko, require exchange API keys, access private exchange/account/order endpoints, or place trades. Failure messages are bounded and must not print `DATABASE_URL` or credentials.
 
 ## Run Alembic checks
 
