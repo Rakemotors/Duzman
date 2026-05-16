@@ -20,6 +20,7 @@ src-layout, editable install через .venv/bin/python -m pip install -e .
 ### Коллекторы
 
 - BinanceCollector — публичные Binance spot endpoints /api/v3/ticker/24hr и /api/v3/klines для 6 активов Stage A
+- AlternativeMeCollector — публичный Alternative.me Fear & Greed endpoint /fng/?limit=1; пишет fear_greed_index через GlobalMetricRepository
 - BybitCollector — публичные derivatives endpoints Bybit v5 для funding rate, open interest и long/short ratio; не собирает спот-цены
 - CoinGeckoCollector — fallback для цен и BTC dominance (последнее ещё не подключено)
 - CoinGeckoGlobalCollector — публичный CoinGecko Global endpoint /api/v3/global для BTC dominance; пишет через GlobalMetricRepository
@@ -40,6 +41,7 @@ src-layout, editable install через .venv/bin/python -m pip install -e .
 - coingecko_global_hourly — hourly BTC dominance collection at XX:17 UTC; appends global_metrics rows via GlobalMetricRepository
 - coinglass_hourly — hourly CoinGlass liquidation and heatmap collection at XX:18 UTC; uses LiquidationRepository and HeatmapRepository
 - etf_flows_daily — daily Farside ETF flow collection at 02:17 UTC; job registered in runtime scheduler and not started automatically
+- fear_greed_daily — daily Alternative.me Fear & Greed collection at 02:17 UTC; job registered independently and not started automatically
 
 ### Read-only API
 

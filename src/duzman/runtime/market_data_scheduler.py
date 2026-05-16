@@ -27,6 +27,7 @@ BinanceCollectorFactory = Callable[[], BinanceCollector]
 BybitCollectorFactory = Callable[[], BybitCollector]
 IndicatorRepositoryFactory = Callable[[], IndicatorRepository]
 DAILY_ETF_FLOWS_JOB_ID = "etf_flows_daily"
+DAILY_FEAR_GREED_JOB_ID = "fear_greed_daily"
 HOURLY_COINGLASS_JOB_ID = "coinglass_hourly"
 HOURLY_COINGECKO_GLOBAL_JOB_ID = "coingecko_global_hourly"
 
@@ -95,6 +96,20 @@ def build_market_data_scheduler(
         run_etf_flow_cycle,
         trigger=CronTrigger(hour=2, minute=17, second=0, timezone=UTC),
         id=DAILY_ETF_FLOWS_JOB_ID,
+        replace_existing=True,
+    )
+
+    def run_fear_greed_cycle():
+        from duzman.runtime.alternative_me_jobs import collect_fear_greed_once
+
+        return asyncio.run(
+            collect_fear_greed_once(session_factory=resolved_session_factory)
+        )
+
+    resolved_scheduler.add_job(
+        run_fear_greed_cycle,
+        trigger=CronTrigger(hour=2, minute=17, second=0, timezone=UTC),
+        id=DAILY_FEAR_GREED_JOB_ID,
         replace_existing=True,
     )
 

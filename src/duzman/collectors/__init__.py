@@ -7,6 +7,7 @@ from duzman.collectors.base import (
     MarketDataSnapshot,
     UnsupportedMarketSymbolError,
 )
+from duzman.collectors.alternative_me import AlternativeMeCollector
 from duzman.collectors.binance import BinanceCollector
 from duzman.collectors.bybit import BybitCollector
 from duzman.collectors.coingecko import CoinGeckoCollector
@@ -26,6 +27,7 @@ from duzman.collectors.records import (
 )
 
 __all__ = [
+    "AlternativeMeCollector",
     "BinanceCollector",
     "BybitCollector",
     "CoinGeckoCollector",
