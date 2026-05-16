@@ -26,6 +26,12 @@ Install project dependencies into `.venv` only:
 .venv/bin/python -m pip install -r requirements.txt
 ```
 
+Install the local `src/` package into `.venv` in editable mode so runtime commands can import `duzman` outside pytest:
+
+```bash
+.venv/bin/python -m pip install -e .
+```
+
 Do not use `sudo`, `apt`, global `pip install`, `pip install --user`, or shell profile changes for this setup.
 
 ## Run tests
