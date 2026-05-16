@@ -123,6 +123,26 @@ class Liquidation(Base):
     shorts_liquidated_24h_usd: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 2))
 
 
+class LiquidationHeatmap(Base):
+    __tablename__ = "liquidation_heatmap"
+    __table_args__ = (
+        Index(
+            "ix_liquidation_heatmap_ts_asset_tf",
+            "ts",
+            "asset",
+            "timeframe",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    asset: Mapped[str] = mapped_column(String(10), ForeignKey("assets.symbol"), nullable=False)
+    timeframe: Mapped[str] = mapped_column(String(10), nullable=False)
+    price_low: Mapped[Decimal] = mapped_column(Numeric(20, 8), nullable=False)
+    price_high: Mapped[Decimal] = mapped_column(Numeric(20, 8), nullable=False)
+    liquidation_volume_usd: Mapped[Decimal] = mapped_column(Numeric(20, 2), nullable=False)
+
+
 class EtfFlow(Base):
     __tablename__ = "etf_flows"
 

@@ -27,6 +27,7 @@ BinanceCollectorFactory = Callable[[], BinanceCollector]
 BybitCollectorFactory = Callable[[], BybitCollector]
 IndicatorRepositoryFactory = Callable[[], IndicatorRepository]
 DAILY_ETF_FLOWS_JOB_ID = "etf_flows_daily"
+HOURLY_COINGLASS_JOB_ID = "coinglass_hourly"
 
 
 def build_market_data_scheduler(
@@ -93,6 +94,25 @@ def build_market_data_scheduler(
         run_etf_flow_cycle,
         trigger=CronTrigger(hour=2, minute=17, second=0, timezone=UTC),
         id=DAILY_ETF_FLOWS_JOB_ID,
+        replace_existing=True,
+    )
+
+    def run_coinglass_cycle():
+        from duzman.runtime.coinglass_jobs import (
+            collect_heatmaps_once,
+            collect_liquidations_once,
+        )
+
+        async def run_sequentially():
+            await collect_liquidations_once(session_factory=resolved_session_factory)
+            await collect_heatmaps_once(session_factory=resolved_session_factory)
+
+        return asyncio.run(run_sequentially())
+
+    resolved_scheduler.add_job(
+        run_coinglass_cycle,
+        trigger=CronTrigger(minute=18, second=0, timezone=UTC),
+        id=HOURLY_COINGLASS_JOB_ID,
         replace_existing=True,
     )
     return resolved_scheduler

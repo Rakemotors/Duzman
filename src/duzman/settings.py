@@ -1,3 +1,4 @@
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +17,7 @@ class Settings(BaseSettings):
     telegram_chat_id_alerts: str = ""
     telegram_chat_id_system: str = ""
     duzman_api_key: str = ""
+    coinglass_api_key: SecretStr | None = None
 
 
 settings = Settings()

@@ -1,0 +1,14 @@
+{
+  "code": "0",
+  "msg": "success",
+  "data": [
+    {
+      "price": "90000",
+      "liquidationVolumeUsd": "1000.50"
+    },
+    {
+      "price": "100500",
+      "liquidationVolumeUsd": "250.25"
+    }
+  ]
+}

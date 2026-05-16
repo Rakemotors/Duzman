@@ -67,3 +67,27 @@ class ETFFlowRecord:
     asset: str
     provider: str
     flow_usd_m: Decimal
+
+
+@dataclass(frozen=True)
+class LiquidationRecord:
+    """Normalized liquidation row matching the liquidations table fields."""
+
+    ts: datetime
+    asset: str
+    longs_1h_usd: Decimal
+    shorts_1h_usd: Decimal
+    longs_24h_usd: Decimal
+    shorts_24h_usd: Decimal
+
+
+@dataclass(frozen=True)
+class HeatmapBucketRecord:
+    """Normalized liquidation heatmap bucket for persisted read-only views."""
+
+    ts: datetime
+    asset: str
+    timeframe: str
+    price_low: Decimal
+    price_high: Decimal
+    liquidation_volume_usd: Decimal
