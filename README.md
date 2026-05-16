@@ -29,3 +29,5 @@ Run one manual collection cycle with:
 ```
 
 The command runs exactly one public Binance/CoinGecko collection cycle, writes `price_snapshots` and source health checks through the existing services, configures structured logging explicitly, and exits. It does not start APScheduler, install services, run migrations, require exchange API keys, or place orders.
+
+Runtime database access is supplied through `DATABASE_URL`. Use placeholder-only examples in docs and never commit real passwords, paste secrets into Codex/ChatGPT logs, or store database passwords in shell profiles. Live migrations are a separate controlled step and are not run by the one-shot command.

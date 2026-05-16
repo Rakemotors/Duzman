@@ -48,6 +48,27 @@ Duzman does not provide a default database password or fallback connection strin
 
 The offline test suite does not require `DATABASE_URL`, `.env`, or a live PostgreSQL connection.
 
+For a single manual runtime command, provide `DATABASE_URL` only for that command invocation. Use the real password only in an Operator-controlled shell, and do not paste it into Codex, ChatGPT, issue trackers, docs, or logs.
+
+Placeholder example:
+
+```bash
+DATABASE_URL="postgresql+psycopg://duzman_user:REPLACE_WITH_PASSWORD@localhost:5432/duzman" \
+.venv/bin/python -m duzman.runtime.run_market_data_collection_once
+```
+
+This example is intentionally fake. Replace `REPLACE_WITH_PASSWORD` only in a private Operator-controlled context.
+
+Do not:
+
+- put database passwords in `~/.bashrc`, `~/.profile`, `~/.zshrc`, `/etc/environment`, or other global shell profiles;
+- commit `.env` or any file containing real secrets;
+- print environment variables with `env` or `printenv`;
+- paste real database URLs, passwords, API keys, tokens, seed phrases, or wallet private keys into Codex/ChatGPT logs;
+- add exchange private API keys, account endpoints, order endpoints, or trading credentials for Stage A.
+
+If runtime database configuration is missing, the one-shot command should fail safely before opening a database session and log a controlled failure. It does not need exchange API keys because the current collectors use public market-data endpoints only.
+
 ## Run Alembic checks
 
 Show migration history:
@@ -93,6 +114,8 @@ Optional log level:
 The command configures structured logging only when explicitly invoked. Logs use safe event names and key/value fields, avoid raw payload bodies and query parameters, and do not print environment variables or secrets.
 
 The command does not start APScheduler, install systemd, add Docker, add Redis/Celery/queues, run database migrations, require exchange API keys, access private account/order endpoints, or place trades.
+
+Live database migrations are a separate controlled operation. Do not run `alembic upgrade` against a live database unless that is explicitly approved as a separate task.
 
 ## Known current gaps
 
