@@ -174,11 +174,12 @@ class BybitCollector:
                     started_at,
                 )
                 return None
+            funding_rate_fraction = self._required_decimal(ticker, "fundingRate")
             record = FundingRateRecord(
                 ts=datetime.now(timezone.utc),
                 asset=asset_symbol,
                 exchange=self.source,
-                funding_rate_pct=self._required_decimal(ticker, "fundingRate"),
+                funding_rate_pct=funding_rate_fraction * Decimal("100"),
                 next_funding_time=self._optional_datetime_ms(ticker, "nextFundingTime"),
             )
         except Exception as exc:

@@ -50,7 +50,7 @@ async def test_fetch_funding_rates_happy_path_normalizes_fields():
     assert len(records) == 1
     assert records[0].asset == "BTC"
     assert records[0].exchange == "bybit"
-    assert records[0].funding_rate_pct == Decimal("0.0001")
+    assert records[0].funding_rate_pct == Decimal("0.01")
     assert records[0].next_funding_time == datetime.fromtimestamp(1715775420000 / 1000, tz=timezone.utc)
     assert observed_requests[0].url.path == "/v5/market/tickers"
     assert observed_requests[0].url.params["category"] == "linear"
