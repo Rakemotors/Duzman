@@ -10,8 +10,10 @@ from duzman.collectors.base import (
 from duzman.collectors.binance import BinanceCollector
 from duzman.collectors.bybit import BybitCollector
 from duzman.collectors.coingecko import CoinGeckoCollector
+from duzman.collectors.farside import FarsideCollector
 from duzman.collectors.okx import OKXCollector
 from duzman.collectors.records import (
+    ETFFlowRecord,
     FundingRateRecord,
     LongShortRatioRecord,
     OHLCVRecord,
@@ -22,6 +24,8 @@ __all__ = [
     "BinanceCollector",
     "BybitCollector",
     "CoinGeckoCollector",
+    "ETFFlowRecord",
+    "FarsideCollector",
     "FundingRateRecord",
     "LongShortRatioRecord",
     "MarketDataCollectorError",

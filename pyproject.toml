@@ -8,6 +8,8 @@ version = "0.1.0"
 description = "Personal crypto metrics monitor"
 requires-python = ">=3.12"
 dependencies = [
+    "beautifulsoup4",
+    "lxml",
     "pandas-ta",
 ]
 

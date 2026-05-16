@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 
@@ -57,3 +57,13 @@ class OHLCVRecord:
     close: Decimal
     volume: Decimal
     quote_volume: Decimal
+
+
+@dataclass(frozen=True)
+class ETFFlowRecord:
+    """Normalized ETF flow row matching the etf_flows table primary key."""
+
+    date: date
+    asset: str
+    provider: str
+    flow_usd_m: Decimal

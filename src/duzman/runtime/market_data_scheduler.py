@@ -7,6 +7,7 @@ from datetime import UTC
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.orm import Session
 
 from duzman.collectors import BinanceCollector, BybitCollector
@@ -25,6 +26,7 @@ FetcherFactory = Callable[[], PublicMarketDataFetcher]
 BinanceCollectorFactory = Callable[[], BinanceCollector]
 BybitCollectorFactory = Callable[[], BybitCollector]
 IndicatorRepositoryFactory = Callable[[], IndicatorRepository]
+DAILY_ETF_FLOWS_JOB_ID = "etf_flows_daily"
 
 
 def build_market_data_scheduler(
@@ -78,6 +80,20 @@ def build_market_data_scheduler(
     register_hourly_indicator_collection_job(
         resolved_scheduler,
         run_indicator_cycle,
+    )
+
+    def run_etf_flow_cycle():
+        from duzman.runtime.farside_jobs import collect_etf_flows_once
+
+        return asyncio.run(
+            collect_etf_flows_once(session_factory=resolved_session_factory)
+        )
+
+    resolved_scheduler.add_job(
+        run_etf_flow_cycle,
+        trigger=CronTrigger(hour=2, minute=17, second=0, timezone=UTC),
+        id=DAILY_ETF_FLOWS_JOB_ID,
+        replace_existing=True,
     )
     return resolved_scheduler
 
