@@ -128,6 +128,26 @@ class BybitCollector:
         )
         return records
 
+    async def fetch_mark_prices(self, symbols: list[str]) -> list[dict[str, Decimal | str]]:
+        """Fetch public Bybit mark prices for Stage A asset symbols."""
+        log_event(
+            self.logger,
+            "bybit_fetch_mark_prices_started",
+            symbol_count=len(symbols),
+        )
+        records: list[dict[str, Decimal | str]] = []
+        for symbol in symbols:
+            record = await self._fetch_symbol_mark_price(symbol)
+            if record is not None:
+                records.append(record)
+        log_event(
+            self.logger,
+            "bybit_fetch_mark_prices_completed",
+            symbol_count=len(symbols),
+            record_count=len(records),
+        )
+        return records
+
     async def _fetch_symbol_funding_rate(
         self, symbol: str
     ) -> FundingRateRecord | None:
@@ -192,6 +212,35 @@ class BybitCollector:
                 oi_usd=oi_contracts * mark_price,
                 oi_contracts=oi_contracts,
             )
+        except Exception as exc:
+            await self._record_failure(
+                safe_error_message(exc, MAX_BYBIT_ERROR_LENGTH),
+                started_at,
+            )
+            return None
+
+        await self._record_success(started_at)
+        return record
+
+    async def _fetch_symbol_mark_price(
+        self,
+        symbol: str,
+    ) -> dict[str, Decimal | str] | None:
+        started_at = monotonic()
+        try:
+            asset_symbol, bybit_symbol = self._normalize_asset_symbol(symbol)
+            payload = await self._get_ticker_payload(bybit_symbol)
+            ticker = self._single_result_item(payload)
+            if ticker is None:
+                await self._record_failure(
+                    "Bybit ticker result.list was empty",
+                    started_at,
+                )
+                return None
+            record: dict[str, Decimal | str] = {
+                "asset": asset_symbol,
+                "mark_price": self._required_decimal(ticker, "markPrice"),
+            }
         except Exception as exc:
             await self._record_failure(
                 safe_error_message(exc, MAX_BYBIT_ERROR_LENGTH),

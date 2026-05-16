@@ -11,6 +11,7 @@ from duzman.runtime.market_data_scheduler import (
     build_market_data_scheduler,
     run_market_data_scheduler_forever,
 )
+from duzman.scheduler.indicator_jobs import HOURLY_INDICATOR_COLLECTION_JOB_ID
 from duzman.scheduler.market_data_jobs import HOURLY_MARKET_DATA_INGESTION_JOB_ID
 
 
@@ -79,9 +80,14 @@ def test_build_market_data_scheduler_registers_job_without_starting():
     jobs = scheduler.get_jobs()
 
     assert scheduler.running is False
-    assert len(jobs) == 1
-    assert jobs[0].id == HOURLY_MARKET_DATA_INGESTION_JOB_ID
-    assert "minute='17'" in str(jobs[0].trigger)
+    assert len(jobs) == 2
+    jobs_by_id = {job.id: job for job in jobs}
+    assert set(jobs_by_id) == {
+        HOURLY_MARKET_DATA_INGESTION_JOB_ID,
+        HOURLY_INDICATOR_COLLECTION_JOB_ID,
+    }
+    assert "minute='17'" in str(jobs_by_id[HOURLY_MARKET_DATA_INGESTION_JOB_ID].trigger)
+    assert "minute='23'" in str(jobs_by_id[HOURLY_INDICATOR_COLLECTION_JOB_ID].trigger)
 
 
 def test_registered_runtime_job_can_run_with_injected_offline_dependencies():
@@ -91,7 +97,11 @@ def test_registered_runtime_job_can_run_with_injected_offline_dependencies():
         session_factory=session_factory,
         fetcher_factory=FakePublicMarketDataFetcher,
     )
-    job = scheduler.get_jobs()[0]
+    job = [
+        job
+        for job in scheduler.get_jobs()
+        if job.id == HOURLY_MARKET_DATA_INGESTION_JOB_ID
+    ][0]
 
     result = job.func()
 

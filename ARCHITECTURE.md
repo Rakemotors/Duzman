@@ -13,7 +13,7 @@ src-layout, editable install через .venv/bin/python -m pip install -e .
 - collectors/ — публичные коллекторы Binance и CoinGecko (только спот-цены и OHLCV)
 - db/ — SQLAlchemy 2.0 модели, repository pattern, Alembic миграции, 13 таблиц по Приложению Б ТЗ
 - api/ — FastAPI app factory create_app(), read-only роуты /api/market-data/*
-- scheduler/ — APScheduler с CronTrigger XX:17 UTC, job зарегистрирован, не запускается автоматически
+- scheduler/ — APScheduler с CronTrigger XX:17 UTC для market data и XX:23 UTC для indicators; jobs зарегистрированы, не запускаются автоматически
 - runtime/ — one-shot entrypoints (run_market_data_collection_once, verify_local_database, verify_read_only_api)
 - settings.py, main.py
 
@@ -30,6 +30,10 @@ src-layout, editable install через .venv/bin/python -m pip install -e .
 - Stochastic — pandas-ta Stochastic по high/low/close, k=14, d=3, smoothing=3
 - Realized Volatility 24h — annualized volatility по 1h close returns, минимум 25 свечей
 - Premium/Discount — (perp_price - spot_price) / spot_price * 100
+
+### Scheduler
+
+- indicator_jobs.py — hourly deterministic indicator collection at XX:23 UTC; reads Binance OHLCV/tickers and Bybit mark prices, then persists indicators
 
 ### Read-only API
 

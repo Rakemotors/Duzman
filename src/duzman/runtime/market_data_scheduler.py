@@ -1,3 +1,6 @@
+"""Runtime builder for scheduled market data and indicator jobs."""
+
+import asyncio
 from collections.abc import Callable
 from datetime import UTC
 
@@ -6,18 +9,30 @@ from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.schedulers.blocking import BlockingScheduler
 from sqlalchemy.orm import Session
 
+from duzman.collectors import BinanceCollector, BybitCollector
 from duzman.logging_config import configure_logging
+from duzman.repositories import IndicatorRepository
+from duzman.scheduler.indicator_jobs import (
+    collect_indicators_job,
+    register_hourly_indicator_collection_job,
+)
 from duzman.scheduler.market_data_jobs import register_hourly_market_data_ingestion_job
 from duzman.services import PublicMarketDataFetcher, run_public_market_data_ingestion_job
 
 
 SessionFactory = Callable[[], Session]
 FetcherFactory = Callable[[], PublicMarketDataFetcher]
+BinanceCollectorFactory = Callable[[], BinanceCollector]
+BybitCollectorFactory = Callable[[], BybitCollector]
+IndicatorRepositoryFactory = Callable[[], IndicatorRepository]
 
 
 def build_market_data_scheduler(
     session_factory: SessionFactory | None = None,
     fetcher_factory: FetcherFactory | None = None,
+    binance_collector_factory: BinanceCollectorFactory | None = None,
+    bybit_collector_factory: BybitCollectorFactory | None = None,
+    indicator_repository_factory: IndicatorRepositoryFactory | None = None,
     scheduler: BaseScheduler | None = None,
 ) -> BaseScheduler:
     """Build a scheduler with the hourly market data job registered but not started."""
@@ -28,6 +43,11 @@ def build_market_data_scheduler(
     else:
         resolved_session_factory = session_factory
     resolved_fetcher_factory = fetcher_factory or PublicMarketDataFetcher
+    resolved_binance_collector_factory = binance_collector_factory or BinanceCollector
+    resolved_bybit_collector_factory = bybit_collector_factory or BybitCollector
+    resolved_indicator_repository_factory = (
+        indicator_repository_factory or IndicatorRepository
+    )
     resolved_scheduler = scheduler or BackgroundScheduler(timezone=UTC)
 
     def run_collection_cycle():
@@ -43,6 +63,21 @@ def build_market_data_scheduler(
     register_hourly_market_data_ingestion_job(
         resolved_scheduler,
         run_collection_cycle,
+    )
+
+    def run_indicator_cycle():
+        return asyncio.run(
+            collect_indicators_job(
+                session_factory=resolved_session_factory,
+                binance_collector=resolved_binance_collector_factory(),
+                bybit_collector=resolved_bybit_collector_factory(),
+                repository=resolved_indicator_repository_factory(),
+            )
+        )
+
+    register_hourly_indicator_collection_job(
+        resolved_scheduler,
+        run_indicator_cycle,
     )
     return resolved_scheduler
 

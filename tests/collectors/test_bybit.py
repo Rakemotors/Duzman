@@ -110,6 +110,52 @@ async def test_fetch_long_short_ratio_happy_path_normalizes_percentages():
 
 
 @pytest.mark.asyncio
+async def test_fetch_mark_prices_happy_path_normalizes_mark_price():
+    """Mark-price fetch should return asset and Decimal mark price."""
+    recorder = _HealthRecorder()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=_ticker_payload(mark_price="67123.45"))
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        records = await BybitCollector(client=client, health_recorder=recorder).fetch_mark_prices(["BTC"])
+
+    assert records == [{"asset": "BTC", "mark_price": Decimal("67123.45")}]
+    assert len(recorder.successes) == 1
+    assert recorder.failures == []
+
+
+@pytest.mark.asyncio
+async def test_fetch_mark_prices_retcode_failure_returns_empty_list():
+    """Mark-price retCode failures should be recorded and isolated."""
+    recorder = _HealthRecorder()
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_retcode_failure)) as client:
+        records = await BybitCollector(client=client, health_recorder=recorder).fetch_mark_prices(["BTC"])
+
+    assert records == []
+    assert recorder.successes == []
+    assert len(recorder.failures) == 1
+    assert "retCode=10001" in recorder.failures[0][1]
+
+
+@pytest.mark.asyncio
+async def test_fetch_mark_prices_http_500_returns_empty_list():
+    """Mark-price HTTP errors should be recorded without raising outward."""
+    recorder = _HealthRecorder()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, json={"retCode": 0})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        records = await BybitCollector(client=client, health_recorder=recorder).fetch_mark_prices(["BTC"])
+
+    assert records == []
+    assert len(recorder.failures) == 1
+    assert "status 500" in recorder.failures[0][1]
+
+
+@pytest.mark.asyncio
 async def test_fetch_funding_rates_retcode_failure_returns_empty_list():
     """Bybit retCode failures should be recorded and not escape the collector."""
     recorder = _HealthRecorder()
