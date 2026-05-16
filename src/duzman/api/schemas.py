@@ -33,17 +33,6 @@ class SourceHealthRead(BaseModel):
     error_message: str | None = None
 
 
-class IngestionStatusSummary(BaseModel):
-    """Read-only summary of persisted ingestion and source health state."""
-
-    latest_price_snapshot_at: datetime | None
-    latest_source_health_check_at: datetime | None
-    price_snapshot_count: int
-    source_health_check_count: int
-    sources_seen: list[str]
-    symbols_seen: list[str]
-
-
 class IngestionHealthAlertRead(BaseModel):
     """Read-only deterministic alert for persisted ingestion health."""
 
@@ -55,3 +44,26 @@ class IngestionHealthAlertRead(BaseModel):
     symbol: str | None = None
     observed_at: datetime | None = None
     details: dict[str, JsonScalar] | None = None
+
+
+class IngestionHealthSummaryRead(BaseModel):
+    """Compact deterministic summary of persisted ingestion health."""
+
+    status: str
+    alert_count: int
+    highest_severity: str | None
+    latest_checked_at: datetime | None
+    critical_alert_count: int
+    warning_alert_count: int
+
+
+class IngestionStatusSummary(BaseModel):
+    """Read-only summary of persisted ingestion and source health state."""
+
+    latest_price_snapshot_at: datetime | None
+    latest_source_health_check_at: datetime | None
+    price_snapshot_count: int
+    source_health_check_count: int
+    sources_seen: list[str]
+    symbols_seen: list[str]
+    ingestion_health_summary: IngestionHealthSummaryRead

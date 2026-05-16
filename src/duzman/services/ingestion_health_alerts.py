@@ -10,6 +10,14 @@ from typing import Protocol
 DEFAULT_PRICE_SNAPSHOT_FRESHNESS_THRESHOLD = timedelta(minutes=30)
 DEFAULT_SOURCE_HEALTH_FRESHNESS_THRESHOLD = timedelta(minutes=30)
 HEALTHY_SOURCE_STATUS = "ok"
+INGESTION_HEALTHY = "healthy"
+INGESTION_WARNING = "warning"
+INGESTION_CRITICAL = "critical"
+SEVERITY_RANK = {
+    "info": 1,
+    INGESTION_WARNING: 2,
+    INGESTION_CRITICAL: 3,
+}
 
 
 class PriceSnapshotHealthRow(Protocol):
@@ -42,6 +50,18 @@ class IngestionHealthAlert:
     details: dict[str, object] | None = None
 
 
+@dataclass(frozen=True)
+class IngestionHealthSummary:
+    """Compact deterministic health summary for persisted ingestion state."""
+
+    status: str
+    alert_count: int
+    highest_severity: str | None
+    latest_checked_at: datetime | None
+    critical_alert_count: int
+    warning_alert_count: int
+
+
 def evaluate_ingestion_health_alerts(
     price_snapshots: list[PriceSnapshotHealthRow],
     source_health_checks: list[SourceHealthCheckHealthRow],
@@ -68,6 +88,35 @@ def evaluate_ingestion_health_alerts(
         )
     )
     return alerts
+
+
+def summarize_ingestion_health(
+    alerts: list[IngestionHealthAlert],
+    latest_checked_at: datetime | None,
+) -> IngestionHealthSummary:
+    """Summarize deterministic ingestion alerts into a compact health status."""
+    highest_severity = _highest_severity(alerts)
+    critical_alert_count = sum(
+        1 for alert in alerts if alert.severity == INGESTION_CRITICAL
+    )
+    warning_alert_count = sum(
+        1 for alert in alerts if alert.severity == INGESTION_WARNING
+    )
+    if critical_alert_count:
+        status = INGESTION_CRITICAL
+    elif alerts:
+        status = INGESTION_WARNING
+    else:
+        status = INGESTION_HEALTHY
+
+    return IngestionHealthSummary(
+        status=status,
+        alert_count=len(alerts),
+        highest_severity=highest_severity,
+        latest_checked_at=latest_checked_at,
+        critical_alert_count=critical_alert_count,
+        warning_alert_count=warning_alert_count,
+    )
 
 
 def _price_snapshot_alerts(
@@ -186,3 +235,9 @@ def _as_aware_utc(timestamp: datetime) -> datetime:
     if timestamp.tzinfo is None:
         return timestamp.replace(tzinfo=timezone.utc)
     return timestamp.astimezone(timezone.utc)
+
+
+def _highest_severity(alerts: list[IngestionHealthAlert]) -> str | None:
+    if not alerts:
+        return None
+    return max(alerts, key=lambda alert: SEVERITY_RANK.get(alert.severity, 0)).severity

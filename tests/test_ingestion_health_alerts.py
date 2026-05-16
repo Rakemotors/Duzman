@@ -1,7 +1,11 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
-from duzman.services.ingestion_health_alerts import evaluate_ingestion_health_alerts
+from duzman.services.ingestion_health_alerts import (
+    IngestionHealthAlert,
+    evaluate_ingestion_health_alerts,
+    summarize_ingestion_health,
+)
 
 
 NOW = datetime(2026, 5, 16, 12, 0, tzinfo=timezone.utc)
@@ -125,6 +129,69 @@ def test_all_healthy_and_fresh_returns_empty_alert_list():
     )
 
     assert alerts == []
+
+
+def test_ingestion_health_summary_is_healthy_without_alerts():
+    """No alerts should summarize to healthy with no highest severity."""
+    summary = summarize_ingestion_health(
+        alerts=[],
+        latest_checked_at=NOW,
+    )
+
+    assert summary.status == "healthy"
+    assert summary.alert_count == 0
+    assert summary.highest_severity is None
+    assert summary.latest_checked_at == NOW
+    assert summary.critical_alert_count == 0
+    assert summary.warning_alert_count == 0
+
+
+def test_ingestion_health_summary_is_warning_for_warning_alerts():
+    """Warning-only alerts should summarize to warning."""
+    summary = summarize_ingestion_health(
+        alerts=[
+            IngestionHealthAlert(
+                alert_type="stale_price_snapshot",
+                severity="warning",
+                title="Latest price snapshot is stale",
+                message="The latest persisted price snapshot is stale.",
+            )
+        ],
+        latest_checked_at=NOW,
+    )
+
+    assert summary.status == "warning"
+    assert summary.alert_count == 1
+    assert summary.highest_severity == "warning"
+    assert summary.critical_alert_count == 0
+    assert summary.warning_alert_count == 1
+
+
+def test_ingestion_health_summary_is_critical_for_critical_alerts():
+    """Any critical alert should summarize to critical."""
+    summary = summarize_ingestion_health(
+        alerts=[
+            IngestionHealthAlert(
+                alert_type="stale_price_snapshot",
+                severity="warning",
+                title="Latest price snapshot is stale",
+                message="The latest persisted price snapshot is stale.",
+            ),
+            IngestionHealthAlert(
+                alert_type="source_recent_failure",
+                severity="critical",
+                title="Recent source health failure",
+                message="A recent source health check failed.",
+            ),
+        ],
+        latest_checked_at=NOW,
+    )
+
+    assert summary.status == "critical"
+    assert summary.alert_count == 2
+    assert summary.highest_severity == "critical"
+    assert summary.critical_alert_count == 1
+    assert summary.warning_alert_count == 1
 
 
 def _alert_types(alerts) -> set[str]:

@@ -189,6 +189,8 @@ These routes do not start APScheduler, trigger collection, call live Binance/Coi
 
 The ingestion alerts endpoint is deterministic and read-only. It evaluates already persisted `price_snapshots` and `source_health_checks` records for missing data, stale data, and recent unhealthy source status. It does not write rows, call external APIs, start schedulers, run migrations, or produce AI-generated trading advice.
 
+The ingestion status endpoint includes an `ingestion_health_summary` field derived from the same deterministic alert calculation. The summary reports `healthy`, `warning`, or `critical` status plus alert counts so the operator or dashboard can quickly display local ingestion health without triggering collection.
+
 Verify read-only API app creation and route registration offline:
 
 ```bash

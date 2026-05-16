@@ -49,6 +49,8 @@ These routes read already persisted public market data only. They do not start A
 
 `/api/market-data/ingestion-alerts` returns deterministic read-only alerts for local ingestion health, including missing price data, stale price data, missing source health checks, recent source failures, and stale source health checks. These alerts are based only on persisted local records and are not AI-generated trading advice.
 
+`/api/market-data/ingestion-status` includes an `ingestion_health_summary` field with deterministic `healthy`, `warning`, or `critical` status derived from the same alert logic.
+
 Verify route registration offline with:
 
 ```bash

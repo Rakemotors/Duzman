@@ -16,6 +16,8 @@ from duzman.runtime.verify_read_only_api import verify_read_only_api_app
 
 def _api_client_with_seed_data(
     collected_at: datetime | None = None,
+    health_checked_at: datetime | None = None,
+    coingecko_health_status: str = "failed",
 ) -> tuple[TestClient, sessionmaker]:
     engine = create_engine(
         "sqlite+pysqlite:///:memory:",
@@ -29,6 +31,8 @@ def _api_client_with_seed_data(
 
     snapshot_time = collected_at or datetime(2026, 5, 15, 12, 17, tzinfo=timezone.utc)
     second_snapshot_time = snapshot_time + timedelta(minutes=1)
+    health_time = health_checked_at or snapshot_time
+    second_health_time = health_time + timedelta(minutes=1)
 
     with Session(engine) as session:
         session.add_all(
@@ -65,14 +69,21 @@ def _api_client_with_seed_data(
         health_repository.record_success(
             "binance",
             latency_ms=25,
-            checked_at=snapshot_time,
+            checked_at=health_time,
         )
-        health_repository.record_failure(
-            "coingecko",
-            error_message="password=fake-secret",
-            latency_ms=100,
-            checked_at=second_snapshot_time,
-        )
+        if coingecko_health_status == "ok":
+            health_repository.record_success(
+                "coingecko",
+                latency_ms=100,
+                checked_at=second_health_time,
+            )
+        else:
+            health_repository.record_failure(
+                "coingecko",
+                error_message="password=fake-secret",
+                latency_ms=100,
+                checked_at=second_health_time,
+            )
         session.commit()
 
     app = create_app()
@@ -183,6 +194,71 @@ def test_ingestion_status_endpoint_returns_summary():
     assert payload["symbols_seen"] == ["BTC", "ETH"]
     assert payload["latest_price_snapshot_at"] is not None
     assert payload["latest_source_health_check_at"] is not None
+    assert payload["ingestion_health_summary"]["alert_count"] >= 1
+
+
+def test_ingestion_status_endpoint_returns_healthy_alert_summary():
+    """Fresh persisted rows with healthy sources should summarize as healthy."""
+    checked_at = datetime(2099, 1, 1, 12, 0, tzinfo=timezone.utc)
+    client, _ = _api_client_with_seed_data(
+        collected_at=checked_at,
+        health_checked_at=checked_at,
+        coingecko_health_status="ok",
+    )
+
+    response = client.get("/api/market-data/ingestion-status")
+
+    assert response.status_code == 200
+    summary = response.json()["ingestion_health_summary"]
+    assert summary == {
+        "status": "healthy",
+        "alert_count": 0,
+        "highest_severity": None,
+        "latest_checked_at": "2099-01-01T12:01:00",
+        "critical_alert_count": 0,
+        "warning_alert_count": 0,
+    }
+
+
+def test_ingestion_status_endpoint_returns_warning_alert_summary():
+    """Warning-only deterministic alerts should summarize as warning."""
+    stale_price_at = datetime(2000, 1, 1, 12, 0, tzinfo=timezone.utc)
+    fresh_health_at = datetime(2099, 1, 1, 12, 0, tzinfo=timezone.utc)
+    client, _ = _api_client_with_seed_data(
+        collected_at=stale_price_at,
+        health_checked_at=fresh_health_at,
+        coingecko_health_status="ok",
+    )
+
+    response = client.get("/api/market-data/ingestion-status")
+
+    assert response.status_code == 200
+    summary = response.json()["ingestion_health_summary"]
+    assert summary["status"] == "warning"
+    assert summary["alert_count"] == 1
+    assert summary["highest_severity"] == "warning"
+    assert summary["critical_alert_count"] == 0
+    assert summary["warning_alert_count"] == 1
+    assert summary["latest_checked_at"] == "2099-01-01T12:01:00"
+
+
+def test_ingestion_status_endpoint_returns_critical_alert_summary():
+    """Any critical deterministic alert should summarize as critical."""
+    checked_at = datetime(2099, 1, 1, 12, 0, tzinfo=timezone.utc)
+    client, _ = _api_client_with_seed_data(
+        collected_at=checked_at,
+        health_checked_at=checked_at,
+    )
+
+    response = client.get("/api/market-data/ingestion-status")
+
+    assert response.status_code == 200
+    summary = response.json()["ingestion_health_summary"]
+    assert summary["status"] == "critical"
+    assert summary["alert_count"] == 1
+    assert summary["highest_severity"] == "critical"
+    assert summary["critical_alert_count"] == 1
+    assert summary["warning_alert_count"] == 0
 
 
 def test_ingestion_alerts_endpoint_returns_deterministic_alerts():

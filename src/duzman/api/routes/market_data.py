@@ -1,5 +1,6 @@
 """Read-only FastAPI routes for persisted public market data."""
 
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session
 from duzman.api.dependencies import get_api_db
 from duzman.api.schemas import (
     IngestionHealthAlertRead,
+    IngestionHealthSummaryRead,
     IngestionStatusSummary,
     PriceSnapshotRead,
     SourceHealthRead,
@@ -16,7 +18,12 @@ from duzman.api.schemas import (
 from duzman.db.models import PriceSnapshot, SourceHealthCheck
 from duzman.logging_config import safe_error_message
 from duzman.repositories import PriceSnapshotRepository, SourceHealthRepository
-from duzman.services import IngestionHealthAlert, evaluate_ingestion_health_alerts
+from duzman.services import (
+    IngestionHealthAlert,
+    IngestionHealthSummary,
+    evaluate_ingestion_health_alerts,
+    summarize_ingestion_health,
+)
 
 
 router = APIRouter(prefix="/api/market-data", tags=["market-data"])
@@ -76,6 +83,16 @@ def get_ingestion_status_summary(
         symbol
         for symbol in db.scalars(select(PriceSnapshot.symbol).distinct())
     )
+    price_repository = PriceSnapshotRepository(db)
+    health_repository = SourceHealthRepository(db)
+    alerts = _evaluate_ingestion_alerts(
+        price_repository=price_repository,
+        health_repository=health_repository,
+    )
+    latest_checked_at = _latest_timestamp(
+        latest_price_snapshot_at,
+        latest_source_health_check_at,
+    )
 
     return IngestionStatusSummary(
         latest_price_snapshot_at=latest_price_snapshot_at,
@@ -84,6 +101,12 @@ def get_ingestion_status_summary(
         source_health_check_count=source_health_check_count or 0,
         sources_seen=sources_seen,
         symbols_seen=symbols_seen,
+        ingestion_health_summary=_ingestion_health_summary_response(
+            summarize_ingestion_health(
+                alerts=alerts,
+                latest_checked_at=latest_checked_at,
+            )
+        ),
     )
 
 
@@ -94,9 +117,9 @@ def list_ingestion_health_alerts(
     """Return deterministic read-only alerts for persisted ingestion health."""
     price_repository = PriceSnapshotRepository(db)
     health_repository = SourceHealthRepository(db)
-    alerts = evaluate_ingestion_health_alerts(
-        price_snapshots=price_repository.list_latest(limit=1),
-        source_health_checks=health_repository.list_latest(),
+    alerts = _evaluate_ingestion_alerts(
+        price_repository=price_repository,
+        health_repository=health_repository,
     )
     return [_ingestion_health_alert_response(alert) for alert in alerts]
 
@@ -140,3 +163,31 @@ def _ingestion_health_alert_response(
         observed_at=alert.observed_at,
         details=alert.details,
     )
+
+
+def _ingestion_health_summary_response(
+    summary: IngestionHealthSummary,
+) -> IngestionHealthSummaryRead:
+    return IngestionHealthSummaryRead(
+        status=summary.status,
+        alert_count=summary.alert_count,
+        highest_severity=summary.highest_severity,
+        latest_checked_at=summary.latest_checked_at,
+        critical_alert_count=summary.critical_alert_count,
+        warning_alert_count=summary.warning_alert_count,
+    )
+
+
+def _evaluate_ingestion_alerts(
+    price_repository: PriceSnapshotRepository,
+    health_repository: SourceHealthRepository,
+) -> list[IngestionHealthAlert]:
+    return evaluate_ingestion_health_alerts(
+        price_snapshots=price_repository.list_latest(limit=1),
+        source_health_checks=health_repository.list_latest(),
+    )
+
+
+def _latest_timestamp(*timestamps: datetime | None) -> datetime | None:
+    available_timestamps = [timestamp for timestamp in timestamps if timestamp]
+    return max(available_timestamps) if available_timestamps else None
