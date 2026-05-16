@@ -22,7 +22,7 @@ class MarketDataService:
     ) -> list[MarketDataSnapshot]:
         """Normalize Binance ticker payloads supplied by a caller or test."""
         return [
-            self.binance_collector.parse_ticker_payload(payload, collected_at)
+            self.binance_collector.normalize_ticker_payload(payload, collected_at)
             for payload in payloads
         ]
 
@@ -36,4 +36,3 @@ class MarketDataService:
             self.coingecko_collector.parse_market_payload(payload, collected_at)
             for payload in payloads
         ]
-

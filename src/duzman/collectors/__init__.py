@@ -8,14 +8,15 @@ from duzman.collectors.base import (
     UnsupportedMarketSymbolError,
 )
 from duzman.collectors.binance import BinanceCollector
-from duzman.collectors.bybit import (
-    BybitCollector,
-    FundingRateRecord,
-    LongShortRatioRecord,
-    OpenInterestRecord,
-)
+from duzman.collectors.bybit import BybitCollector
 from duzman.collectors.coingecko import CoinGeckoCollector
 from duzman.collectors.okx import OKXCollector
+from duzman.collectors.records import (
+    FundingRateRecord,
+    LongShortRatioRecord,
+    OHLCVRecord,
+    OpenInterestRecord,
+)
 
 __all__ = [
     "BinanceCollector",
@@ -27,6 +28,7 @@ __all__ = [
     "MarketDataPayloadError",
     "MarketDataRequest",
     "MarketDataSnapshot",
+    "OHLCVRecord",
     "OKXCollector",
     "OpenInterestRecord",
     "UnsupportedMarketSymbolError",

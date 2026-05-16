@@ -12,7 +12,7 @@ from typing import Any, Protocol
 
 import httpx
 
-from duzman.collectors.bybit import (
+from duzman.collectors.records import (
     FundingRateRecord,
     LongShortRatioRecord,
     OpenInterestRecord,

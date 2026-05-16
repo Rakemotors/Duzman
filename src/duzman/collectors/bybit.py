@@ -5,7 +5,6 @@ from __future__ import annotations
 import inspect
 import logging
 from collections.abc import Mapping
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from time import monotonic
@@ -13,6 +12,11 @@ from typing import Any, Protocol
 
 import httpx
 
+from duzman.collectors.records import (
+    FundingRateRecord,
+    LongShortRatioRecord,
+    OpenInterestRecord,
+)
 from duzman.logging_config import get_logger, log_event, safe_error_message
 
 
@@ -20,42 +24,6 @@ BYBIT_SOURCE = "bybit"
 BYBIT_CATEGORY_LINEAR = "linear"
 BYBIT_RATIO_TYPE_GLOBAL_ACCOUNTS = "global_accounts"
 MAX_BYBIT_ERROR_LENGTH = 200
-
-
-@dataclass(frozen=True)
-class FundingRateRecord:
-    """Normalized Bybit funding-rate row matching the DB model fields."""
-
-    ts: datetime
-    asset: str
-    exchange: str
-    funding_rate_pct: Decimal
-    next_funding_time: datetime | None
-    predicted_rate: Decimal | None = None
-
-
-@dataclass(frozen=True)
-class OpenInterestRecord:
-    """Normalized Bybit open-interest row matching the DB model fields."""
-
-    ts: datetime
-    asset: str
-    exchange: str
-    oi_usd: Decimal
-    oi_contracts: Decimal
-
-
-@dataclass(frozen=True)
-class LongShortRatioRecord:
-    """Normalized Bybit long/short ratio row matching the DB model fields."""
-
-    ts: datetime
-    asset: str
-    exchange: str
-    ratio_type: str
-    long_pct: float
-    short_pct: float
-    ratio: float
 
 
 class BybitSourceHealthRecorder(Protocol):

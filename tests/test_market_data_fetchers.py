@@ -3,6 +3,7 @@ from decimal import Decimal
 
 import httpx
 
+from duzman.collectors import BinanceCollector
 from duzman.services import PublicHttpClient, PublicMarketDataFetcher
 
 
@@ -23,7 +24,9 @@ def test_binance_public_fetcher_uses_request_definition_and_normalizes_payload()
         )
 
     fetcher = PublicMarketDataFetcher(
-        http_client=PublicHttpClient(client=httpx.Client(transport=httpx.MockTransport(handler)))
+        binance_collector=BinanceCollector(
+            client=httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        )
     )
     collected_at = datetime(2026, 5, 15, 12, 17, tzinfo=timezone.utc)
 
@@ -68,4 +71,3 @@ def test_coingecko_public_fetcher_uses_request_definition_and_normalizes_payload
     assert snapshot.source == "coingecko"
     assert snapshot.symbol == "ETH"
     assert snapshot.price == Decimal("3123.45")
-

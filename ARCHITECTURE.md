@@ -19,7 +19,7 @@ src-layout, editable install через .venv/bin/python -m pip install -e .
 
 ### Коллекторы
 
-- BinanceCollector — публичные endpoints, спот-цены и OHLCV для всех 6 активов
+- BinanceCollector — публичные Binance spot endpoints /api/v3/ticker/24hr и /api/v3/klines для 6 активов Stage A
 - BybitCollector — публичные derivatives endpoints Bybit v5 для funding rate, open interest и long/short ratio; не собирает спот-цены
 - CoinGeckoCollector — fallback для цен и BTC dominance (последнее ещё не подключено)
 - OKXCollector — публичные derivatives endpoints OKX v5 для funding rate, open interest и long/short ratio; не собирает спот-цены

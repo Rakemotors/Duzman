@@ -1,3 +1,5 @@
+import asyncio
+from collections.abc import Coroutine
 from datetime import datetime
 from typing import Any, Mapping
 
@@ -27,11 +29,22 @@ class PublicMarketDataFetcher:
         self, symbol: str, collected_at: datetime | None = None
     ) -> MarketDataSnapshot:
         """Fetch and normalize one Binance public 24hr ticker response."""
-        request = self.binance_collector.build_ticker_request(symbol)
-        payload = self.http_client.get_json(request.url, request.params)
-        if not isinstance(payload, Mapping):
-            raise MarketDataPayloadError("Binance public ticker payload must be an object")
-        return self.binance_collector.parse_ticker_payload(payload, collected_at)
+        snapshots = self._run_binance_fetch(self.binance_collector.fetch_tickers([symbol]))
+        if len(snapshots) != 1:
+            raise RuntimeError("Binance public ticker fetch returned no snapshot")
+        snapshot = snapshots[0]
+        if collected_at is None:
+            return snapshot
+        return MarketDataSnapshot(
+            source=snapshot.source,
+            symbol=snapshot.symbol,
+            quote_currency=snapshot.quote_currency,
+            price=snapshot.price,
+            collected_at=collected_at,
+            raw_payload=snapshot.raw_payload,
+            volume_24h_quote=snapshot.volume_24h_quote,
+            price_change_24h_pct=snapshot.price_change_24h_pct,
+        )
 
     def fetch_coingecko_market(
         self, coin_id: str, collected_at: datetime | None = None
@@ -52,3 +65,15 @@ class PublicMarketDataFetcher:
             raise MarketDataPayloadError("CoinGecko market item must be an object")
         return market_item
 
+    def _run_binance_fetch(
+        self,
+        coroutine: Coroutine[Any, Any, list[MarketDataSnapshot]],
+    ) -> list[MarketDataSnapshot]:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(coroutine)
+        coroutine.close()
+        raise RuntimeError(
+            "Synchronous market data fetcher cannot run Binance async collector inside an active event loop"
+        )
