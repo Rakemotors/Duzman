@@ -10,6 +10,7 @@ from duzman.db.models import Asset, PriceSnapshot, SourceHealthCheck
 from duzman.runtime.market_data_scheduler import (
     DAILY_ETF_FLOWS_JOB_ID,
     HOURLY_COINGLASS_JOB_ID,
+    HOURLY_COINGECKO_GLOBAL_JOB_ID,
     build_market_data_scheduler,
     run_market_data_scheduler_forever,
 )
@@ -82,15 +83,17 @@ def test_build_market_data_scheduler_registers_job_without_starting():
     jobs = scheduler.get_jobs()
 
     assert scheduler.running is False
-    assert len(jobs) == 4
+    assert len(jobs) == 5
     jobs_by_id = {job.id: job for job in jobs}
     assert set(jobs_by_id) == {
         DAILY_ETF_FLOWS_JOB_ID,
         HOURLY_COINGLASS_JOB_ID,
+        HOURLY_COINGECKO_GLOBAL_JOB_ID,
         HOURLY_MARKET_DATA_INGESTION_JOB_ID,
         HOURLY_INDICATOR_COLLECTION_JOB_ID,
     }
     assert "minute='17'" in str(jobs_by_id[HOURLY_MARKET_DATA_INGESTION_JOB_ID].trigger)
+    assert "minute='17'" in str(jobs_by_id[HOURLY_COINGECKO_GLOBAL_JOB_ID].trigger)
     assert "minute='23'" in str(jobs_by_id[HOURLY_INDICATOR_COLLECTION_JOB_ID].trigger)
     assert "minute='18'" in str(jobs_by_id[HOURLY_COINGLASS_JOB_ID].trigger)
     assert "hour='2'" in str(jobs_by_id[DAILY_ETF_FLOWS_JOB_ID].trigger)

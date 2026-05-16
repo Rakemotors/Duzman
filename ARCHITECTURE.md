@@ -22,6 +22,7 @@ src-layout, editable install через .venv/bin/python -m pip install -e .
 - BinanceCollector — публичные Binance spot endpoints /api/v3/ticker/24hr и /api/v3/klines для 6 активов Stage A
 - BybitCollector — публичные derivatives endpoints Bybit v5 для funding rate, open interest и long/short ratio; не собирает спот-цены
 - CoinGeckoCollector — fallback для цен и BTC dominance (последнее ещё не подключено)
+- CoinGeckoGlobalCollector — публичный CoinGecko Global endpoint /api/v3/global для BTC dominance; пишет через GlobalMetricRepository
 - CoinGlassCollector — публичные CoinGlass endpoints для hourly liquidations по 6 активам и simplified heatmap BTC/ETH; требует operator-provided API key
 - FarsideCollector — публичный HTML-парсер Farside Investors для дневных BTC/ETH ETF net flows; пишет через ETFFlowRepository, без live API в тестах
 - OKXCollector — публичные derivatives endpoints OKX v5 для funding rate, open interest и long/short ratio; не собирает спот-цены
@@ -36,6 +37,7 @@ src-layout, editable install через .venv/bin/python -m pip install -e .
 ### Scheduler
 
 - indicator_jobs.py — hourly deterministic indicator collection at XX:23 UTC; reads Binance OHLCV/tickers and Bybit mark prices, then persists indicators
+- coingecko_global_hourly — hourly BTC dominance collection at XX:17 UTC; appends global_metrics rows via GlobalMetricRepository
 - coinglass_hourly — hourly CoinGlass liquidation and heatmap collection at XX:18 UTC; uses LiquidationRepository and HeatmapRepository
 - etf_flows_daily — daily Farside ETF flow collection at 02:17 UTC; job registered in runtime scheduler and not started automatically
 

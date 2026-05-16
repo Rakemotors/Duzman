@@ -91,3 +91,12 @@ class HeatmapBucketRecord:
     price_low: Decimal
     price_high: Decimal
     liquidation_volume_usd: Decimal
+
+
+@dataclass(frozen=True)
+class GlobalMetricRecord:
+    """Normalized global metric row matching the global_metrics table fields."""
+
+    ts: datetime
+    metric_name: str
+    value: Decimal

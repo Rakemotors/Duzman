@@ -11,11 +11,13 @@ from duzman.collectors.binance import BinanceCollector
 from duzman.collectors.bybit import BybitCollector
 from duzman.collectors.coingecko import CoinGeckoCollector
 from duzman.collectors.coinglass import CoinGlassCollector
+from duzman.collectors.coingecko_global import CoinGeckoGlobalCollector
 from duzman.collectors.farside import FarsideCollector
 from duzman.collectors.okx import OKXCollector
 from duzman.collectors.records import (
     ETFFlowRecord,
     FundingRateRecord,
+    GlobalMetricRecord,
     HeatmapBucketRecord,
     LiquidationRecord,
     LongShortRatioRecord,
@@ -27,10 +29,12 @@ __all__ = [
     "BinanceCollector",
     "BybitCollector",
     "CoinGeckoCollector",
+    "CoinGeckoGlobalCollector",
     "CoinGlassCollector",
     "ETFFlowRecord",
     "FarsideCollector",
     "FundingRateRecord",
+    "GlobalMetricRecord",
     "HeatmapBucketRecord",
     "LiquidationRecord",
     "LongShortRatioRecord",

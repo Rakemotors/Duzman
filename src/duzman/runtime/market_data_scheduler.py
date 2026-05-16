@@ -28,6 +28,7 @@ BybitCollectorFactory = Callable[[], BybitCollector]
 IndicatorRepositoryFactory = Callable[[], IndicatorRepository]
 DAILY_ETF_FLOWS_JOB_ID = "etf_flows_daily"
 HOURLY_COINGLASS_JOB_ID = "coinglass_hourly"
+HOURLY_COINGECKO_GLOBAL_JOB_ID = "coingecko_global_hourly"
 
 
 def build_market_data_scheduler(
@@ -113,6 +114,20 @@ def build_market_data_scheduler(
         run_coinglass_cycle,
         trigger=CronTrigger(minute=18, second=0, timezone=UTC),
         id=HOURLY_COINGLASS_JOB_ID,
+        replace_existing=True,
+    )
+
+    def run_coingecko_global_cycle():
+        from duzman.runtime.coingecko_global_jobs import collect_btc_dominance_once
+
+        return asyncio.run(
+            collect_btc_dominance_once(session_factory=resolved_session_factory)
+        )
+
+    resolved_scheduler.add_job(
+        run_coingecko_global_cycle,
+        trigger=CronTrigger(minute=17, second=0, timezone=UTC),
+        id=HOURLY_COINGECKO_GLOBAL_JOB_ID,
         replace_existing=True,
     )
     return resolved_scheduler
