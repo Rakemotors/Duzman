@@ -115,3 +115,31 @@ def test_repository_lists_latest_snapshots_by_source_symbol():
         Decimal("67123.45000000"),
         Decimal("67000.00000000"),
     ]
+
+
+def test_repository_lists_latest_snapshots_with_optional_filters():
+    """List queries should apply safe source/symbol filters and limits."""
+    session = _sqlite_session()
+    repository = PriceSnapshotRepository(session)
+
+    for source, symbol, price in (
+        ("binance", "BTC", "67123.45"),
+        ("coingecko", "BTC", "67120.01"),
+        ("binance", "ETH", "3123.45"),
+    ):
+        repository.create_from_market_data(
+            MarketDataSnapshot(
+                source=source,
+                symbol=symbol,
+                quote_currency="USDT" if source == "binance" else "USD",
+                price=Decimal(price),
+                collected_at=datetime(2026, 5, 15, 12, 17, tzinfo=timezone.utc),
+                raw_payload={"source": source, "symbol": symbol},
+            )
+        )
+    session.commit()
+
+    latest = repository.list_latest(symbol="BTC", limit=1)
+
+    assert len(latest) == 1
+    assert latest[0].symbol == "BTC"

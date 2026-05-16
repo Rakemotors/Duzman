@@ -44,6 +44,20 @@ class PriceSnapshotRepository:
         )
         return list(self.session.scalars(statement))
 
+    def list_latest(
+        self,
+        symbol: str | None = None,
+        source: str | None = None,
+        limit: int = 20,
+    ) -> list[PriceSnapshot]:
+        """Return latest persisted public price snapshots with bounded filters."""
+        statement: Select[tuple[PriceSnapshot]] = select(PriceSnapshot)
+        if symbol is not None:
+            statement = statement.where(PriceSnapshot.symbol == symbol)
+        if source is not None:
+            statement = statement.where(PriceSnapshot.source == source)
+        statement = statement.order_by(PriceSnapshot.collected_at.desc()).limit(limit)
+        return list(self.session.scalars(statement))
+
     def _safe_raw_payload(self, raw_payload: Mapping[str, object]) -> dict[str, object]:
         return dict(raw_payload)
-

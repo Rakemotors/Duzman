@@ -123,6 +123,24 @@ The command does not start APScheduler, install systemd, add Docker, add Redis/C
 
 Live database migrations are a separate controlled operation. Do not run `alembic upgrade` against a live database unless that is explicitly approved as a separate task.
 
+## Inspect read-only API routes
+
+The FastAPI app factory is available as `duzman.api.create_app()`. It registers read-only routes for already persisted public market data:
+
+- `GET /api/market-data/prices/latest`
+- `GET /api/market-data/source-health`
+- `GET /api/market-data/ingestion-status`
+
+Example placeholder requests:
+
+```text
+GET /api/market-data/prices/latest?symbol=BTC&source=binance&limit=20
+GET /api/market-data/source-health?source=binance
+GET /api/market-data/ingestion-status
+```
+
+These routes do not start APScheduler, trigger collection, call live Binance/CoinGecko APIs, run database migrations, require exchange API keys, access private account/order endpoints, or place trades. They require an application database session at runtime and are tested offline with local test databases.
+
 ## Known current gaps
 
 - Alembic `current` needs a safe local database configuration before it can report a live database revision.
@@ -136,3 +154,4 @@ Live database migrations are a separate controlled operation. Do not run `alembi
 - The runtime scheduler entrypoint can build an APScheduler instance for the market data job, but it does not auto-start, install systemd, add Docker, add Redis/Celery/queues, or apply migrations.
 - Structured logging exists for the public HTTP client, source health tracking, collection job, and explicit runtime entrypoint. Logs use safe event names and key/value fields, avoid raw payload bodies and query parameters, and do not require API keys or any secret configuration.
 - The one-shot collection command can run one explicit collection cycle, but it requires safe runtime database configuration and does not apply migrations automatically.
+- The read-only API routes expose persisted public market data and source health only; they do not trigger collection or scheduler startup.

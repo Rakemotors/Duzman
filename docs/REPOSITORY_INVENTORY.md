@@ -248,6 +248,7 @@ Implemented:
 - Runtime scheduler entrypoint exists for constructing an APScheduler instance with the hourly job registered.
 - Structured logging exists for the public HTTP client, source health tracking, collection job, and explicit runtime entrypoint.
 - One-shot runtime command exists for running a single explicit public market data collection cycle.
+- Read-only FastAPI routes exist for latest price snapshots, source health, and ingestion status.
 
 Missing:
 

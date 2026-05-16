@@ -59,6 +59,26 @@ class SourceHealthRepository:
         )
         return self.session.scalars(statement).first()
 
+    def list_latest(
+        self,
+        source: str | None = None,
+        limit: int = 100,
+    ) -> list[SourceHealthCheck]:
+        """Return latest source health checks, one record per source when unfiltered."""
+        if source is not None:
+            latest = self.latest_by_source(source)
+            return [latest] if latest is not None else []
+
+        statement: Select[tuple[SourceHealthCheck]] = (
+            select(SourceHealthCheck)
+            .order_by(SourceHealthCheck.checked_at.desc())
+            .limit(limit)
+        )
+        latest_by_source: dict[str, SourceHealthCheck] = {}
+        for health_check in self.session.scalars(statement):
+            latest_by_source.setdefault(health_check.source, health_check)
+        return list(latest_by_source.values())
+
     def _record_check(
         self,
         source: str,
@@ -81,4 +101,3 @@ class SourceHealthRepository:
 
     def _safe_error_message(self, error_message: str) -> str:
         return error_message[:MAX_SOURCE_HEALTH_ERROR_LENGTH]
-
