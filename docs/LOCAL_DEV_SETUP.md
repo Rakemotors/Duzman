@@ -174,6 +174,7 @@ The FastAPI app factory is available as `duzman.api.create_app()`. It registers 
 - `GET /api/market-data/prices/latest`
 - `GET /api/market-data/source-health`
 - `GET /api/market-data/ingestion-status`
+- `GET /api/market-data/ingestion-alerts`
 
 Example placeholder requests:
 
@@ -181,9 +182,12 @@ Example placeholder requests:
 GET /api/market-data/prices/latest?symbol=BTC&source=binance&limit=20
 GET /api/market-data/source-health?source=binance
 GET /api/market-data/ingestion-status
+GET /api/market-data/ingestion-alerts
 ```
 
 These routes do not start APScheduler, trigger collection, call live Binance/CoinGecko APIs, run database migrations, require exchange API keys, access private account/order endpoints, or place trades. They require an application database session at runtime and are tested offline with local test databases.
+
+The ingestion alerts endpoint is deterministic and read-only. It evaluates already persisted `price_snapshots` and `source_health_checks` records for missing data, stale data, and recent unhealthy source status. It does not write rows, call external APIs, start schedulers, run migrations, or produce AI-generated trading advice.
 
 Verify read-only API app creation and route registration offline:
 
@@ -213,3 +217,4 @@ This smoke check instantiates the FastAPI app and verifies route registration on
 - Structured logging exists for the public HTTP client, source health tracking, collection job, and explicit runtime entrypoint. Logs use safe event names and key/value fields, avoid raw payload bodies and query parameters, and do not require API keys or any secret configuration.
 - The one-shot collection command can run one explicit collection cycle, but it requires safe runtime database configuration and does not apply migrations automatically.
 - The read-only API routes expose persisted public market data and source health only; they do not trigger collection or scheduler startup.
+- Deterministic ingestion health alerts expose missing/stale ingestion data and recent source failures from persisted local rows only.

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
@@ -14,7 +14,9 @@ from duzman.repositories import PriceSnapshotRepository, SourceHealthRepository
 from duzman.runtime.verify_read_only_api import verify_read_only_api_app
 
 
-def _api_client_with_seed_data() -> tuple[TestClient, sessionmaker]:
+def _api_client_with_seed_data(
+    collected_at: datetime | None = None,
+) -> tuple[TestClient, sessionmaker]:
     engine = create_engine(
         "sqlite+pysqlite:///:memory:",
         connect_args={"check_same_thread": False},
@@ -24,6 +26,9 @@ def _api_client_with_seed_data() -> tuple[TestClient, sessionmaker]:
     PriceSnapshot.__table__.create(engine)
     SourceHealthCheck.__table__.create(engine)
     session_factory = sessionmaker(bind=engine)
+
+    snapshot_time = collected_at or datetime(2026, 5, 15, 12, 17, tzinfo=timezone.utc)
+    second_snapshot_time = snapshot_time + timedelta(minutes=1)
 
     with Session(engine) as session:
         session.add_all(
@@ -40,7 +45,7 @@ def _api_client_with_seed_data() -> tuple[TestClient, sessionmaker]:
                 symbol="BTC",
                 quote_currency="USDT",
                 price=Decimal("67123.45"),
-                collected_at=datetime(2026, 5, 15, 12, 17, tzinfo=timezone.utc),
+                collected_at=snapshot_time,
                 raw_payload={"symbol": "BTCUSDT", "lastPrice": "67123.45"},
                 volume_24h_quote=Decimal("123456789.12"),
                 price_change_24h_pct=Decimal("2.345"),
@@ -52,7 +57,7 @@ def _api_client_with_seed_data() -> tuple[TestClient, sessionmaker]:
                 symbol="ETH",
                 quote_currency="USD",
                 price=Decimal("3120.01"),
-                collected_at=datetime(2026, 5, 15, 12, 18, tzinfo=timezone.utc),
+                collected_at=second_snapshot_time,
                 raw_payload={"id": "ethereum"},
             )
         )
@@ -60,13 +65,13 @@ def _api_client_with_seed_data() -> tuple[TestClient, sessionmaker]:
         health_repository.record_success(
             "binance",
             latency_ms=25,
-            checked_at=datetime(2026, 5, 15, 12, 17, tzinfo=timezone.utc),
+            checked_at=snapshot_time,
         )
         health_repository.record_failure(
             "coingecko",
             error_message="password=fake-secret",
             latency_ms=100,
-            checked_at=datetime(2026, 5, 15, 12, 18, tzinfo=timezone.utc),
+            checked_at=second_snapshot_time,
         )
         session.commit()
 
@@ -81,6 +86,29 @@ def _api_client_with_seed_data() -> tuple[TestClient, sessionmaker]:
 
     app.dependency_overrides[get_api_db] = override_db
     return TestClient(app), session_factory
+
+
+def _api_client_without_seed_data() -> TestClient:
+    engine = create_engine(
+        "sqlite+pysqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Asset.__table__.create(engine)
+    PriceSnapshot.__table__.create(engine)
+    SourceHealthCheck.__table__.create(engine)
+    session_factory = sessionmaker(bind=engine)
+    app = create_app()
+
+    def override_db():
+        db = session_factory()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_api_db] = override_db
+    return TestClient(app)
 
 
 def test_latest_price_snapshots_endpoint_returns_read_only_data_shape():
@@ -157,6 +185,35 @@ def test_ingestion_status_endpoint_returns_summary():
     assert payload["latest_source_health_check_at"] is not None
 
 
+def test_ingestion_alerts_endpoint_returns_deterministic_alerts():
+    """Ingestion alerts should be derived only from persisted local rows."""
+    client, _ = _api_client_with_seed_data(
+        collected_at=datetime.now(timezone.utc) - timedelta(minutes=2)
+    )
+
+    response = client.get("/api/market-data/ingestion-alerts")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert [alert["alert_type"] for alert in payload] == ["source_recent_failure"]
+    assert payload[0]["source"] == "coingecko"
+    assert payload[0]["severity"] == "critical"
+    assert "password" not in str(payload)
+
+
+def test_ingestion_alerts_endpoint_reports_missing_persisted_data():
+    """Empty local tables should produce missing-data alerts without side effects."""
+    client = _api_client_without_seed_data()
+
+    response = client.get("/api/market-data/ingestion-alerts")
+
+    assert response.status_code == 200
+    assert {alert["alert_type"] for alert in response.json()} == {
+        "no_price_snapshots",
+        "no_source_health_checks",
+    }
+
+
 def test_market_data_api_rejects_write_methods():
     """Market data API routes should remain read-only."""
     client, _ = _api_client_with_seed_data()
@@ -187,6 +244,7 @@ def test_market_data_api_does_not_start_scheduler_or_fetch_network(monkeypatch):
     client, _ = _api_client_with_seed_data()
 
     assert client.get("/api/market-data/ingestion-status").status_code == 200
+    assert client.get("/api/market-data/ingestion-alerts").status_code == 200
 
 
 def test_api_app_creation_registers_routes_without_runtime_side_effects(monkeypatch):
@@ -210,6 +268,7 @@ def test_api_app_creation_registers_routes_without_runtime_side_effects(monkeypa
     routes = verify_read_only_api_app()
 
     assert routes == (
+        "/api/market-data/ingestion-alerts",
         "/api/market-data/ingestion-status",
         "/api/market-data/prices/latest",
         "/api/market-data/source-health",

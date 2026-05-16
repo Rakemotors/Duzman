@@ -43,8 +43,11 @@ The FastAPI app factory `duzman.api.create_app()` registers read-only market dat
 - `GET /api/market-data/prices/latest`
 - `GET /api/market-data/source-health`
 - `GET /api/market-data/ingestion-status`
+- `GET /api/market-data/ingestion-alerts`
 
 These routes read already persisted public market data only. They do not start APScheduler, run collection, call live exchange APIs, run migrations, place orders, or access private exchange/account endpoints.
+
+`/api/market-data/ingestion-alerts` returns deterministic read-only alerts for local ingestion health, including missing price data, stale price data, missing source health checks, recent source failures, and stale source health checks. These alerts are based only on persisted local records and are not AI-generated trading advice.
 
 Verify route registration offline with:
 

@@ -6,6 +6,9 @@ from decimal import Decimal
 from pydantic import BaseModel
 
 
+JsonScalar = str | int | float | bool | None
+
+
 class PriceSnapshotRead(BaseModel):
     """Read-only representation of a persisted public price snapshot."""
 
@@ -39,3 +42,16 @@ class IngestionStatusSummary(BaseModel):
     source_health_check_count: int
     sources_seen: list[str]
     symbols_seen: list[str]
+
+
+class IngestionHealthAlertRead(BaseModel):
+    """Read-only deterministic alert for persisted ingestion health."""
+
+    alert_type: str
+    severity: str
+    title: str
+    message: str
+    source: str | None = None
+    symbol: str | None = None
+    observed_at: datetime | None = None
+    details: dict[str, JsonScalar] | None = None

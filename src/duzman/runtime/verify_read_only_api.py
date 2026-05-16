@@ -12,6 +12,7 @@ EXPECTED_MARKET_DATA_ROUTES: frozenset[str] = frozenset(
         "/api/market-data/prices/latest",
         "/api/market-data/source-health",
         "/api/market-data/ingestion-status",
+        "/api/market-data/ingestion-alerts",
     }
 )
 

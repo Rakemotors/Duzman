@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from duzman.api.dependencies import get_api_db
 from duzman.api.schemas import (
+    IngestionHealthAlertRead,
     IngestionStatusSummary,
     PriceSnapshotRead,
     SourceHealthRead,
@@ -15,6 +16,7 @@ from duzman.api.schemas import (
 from duzman.db.models import PriceSnapshot, SourceHealthCheck
 from duzman.logging_config import safe_error_message
 from duzman.repositories import PriceSnapshotRepository, SourceHealthRepository
+from duzman.services import IngestionHealthAlert, evaluate_ingestion_health_alerts
 
 
 router = APIRouter(prefix="/api/market-data", tags=["market-data"])
@@ -85,6 +87,20 @@ def get_ingestion_status_summary(
     )
 
 
+@router.get("/ingestion-alerts", response_model=list[IngestionHealthAlertRead])
+def list_ingestion_health_alerts(
+    db: Annotated[Session, Depends(get_api_db)],
+) -> list[IngestionHealthAlertRead]:
+    """Return deterministic read-only alerts for persisted ingestion health."""
+    price_repository = PriceSnapshotRepository(db)
+    health_repository = SourceHealthRepository(db)
+    alerts = evaluate_ingestion_health_alerts(
+        price_snapshots=price_repository.list_latest(limit=1),
+        source_health_checks=health_repository.list_latest(),
+    )
+    return [_ingestion_health_alert_response(alert) for alert in alerts]
+
+
 def _price_snapshot_response(snapshot: PriceSnapshot) -> PriceSnapshotRead:
     return PriceSnapshotRead(
         symbol=snapshot.symbol,
@@ -108,4 +124,19 @@ def _source_health_response(health_check: SourceHealthCheck) -> SourceHealthRead
         error_message=safe_error_message(health_check.error_message)
         if health_check.error_message
         else None,
+    )
+
+
+def _ingestion_health_alert_response(
+    alert: IngestionHealthAlert,
+) -> IngestionHealthAlertRead:
+    return IngestionHealthAlertRead(
+        alert_type=alert.alert_type,
+        severity=alert.severity,
+        title=alert.title,
+        message=alert.message,
+        source=alert.source,
+        symbol=alert.symbol,
+        observed_at=alert.observed_at,
+        details=alert.details,
     )

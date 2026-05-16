@@ -13,6 +13,12 @@ from duzman.services.market_data_ingestion import (
     MarketDataIngestionResult,
     MarketDataIngestionService,
 )
+from duzman.services.ingestion_health_alerts import (
+    DEFAULT_PRICE_SNAPSHOT_FRESHNESS_THRESHOLD,
+    DEFAULT_SOURCE_HEALTH_FRESHNESS_THRESHOLD,
+    IngestionHealthAlert,
+    evaluate_ingestion_health_alerts,
+)
 from duzman.services.public_http_client import (
     PublicHttpClient,
     PublicHttpClientError,
@@ -34,6 +40,10 @@ __all__ = [
     "DEFAULT_COINGECKO_COIN_IDS",
     "MarketDataCollectionJob",
     "MarketDataCollectionResult",
+    "DEFAULT_PRICE_SNAPSHOT_FRESHNESS_THRESHOLD",
+    "DEFAULT_SOURCE_HEALTH_FRESHNESS_THRESHOLD",
+    "IngestionHealthAlert",
+    "evaluate_ingestion_health_alerts",
     "PublicHttpClient",
     "PublicHttpClientError",
     "PublicHttpJsonError",
