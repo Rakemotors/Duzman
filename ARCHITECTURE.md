@@ -47,6 +47,14 @@ src-layout, editable install через .venv/bin/python -m pip install -e .
 - Derived calculations are computed at snapshot time: funding average/dislocation, 24h OI change, ETF streak, ETF cumulative five-day flow in USD, price-vs-BTC seven-day change, and BTC dominance seven-day percentage-point change.
 - Missing, stale, inapplicable, or failed metric calculations degrade to `None`; per-derived failures log `derived_metric_failed`, and successful builds log `snapshot_built` with asset and populated-metric counts.
 
+### Pattern Engine — Evaluation Layer
+
+- `src/duzman/patterns/evaluation.py` — pure sync `evaluate_patterns(patterns, snapshot)` returns immutable `PatternMatch` rows ordered by `(pattern_name, asset)`; it does not use the database, scheduler, cooldowns, or AlertGate.
+- `PatternMatch.conditions_snapshot` stores only metrics referenced by the matched pattern conditions, including global metrics when used; `evaluated_at` is copied from `MetricsSnapshot.built_at`.
+- `None` metric values block matches, while missing per-asset thresholds log `pattern_misconfigured` and make the condition false.
+- Condition groups support recursive `all`/`any` semantics, and per-asset thresholds take precedence over scalar condition values when present.
+- Per-pattern evaluation failures log `pattern_evaluation_failed` and do not stop evaluation of other patterns or assets.
+
 ### Scheduler
 
 - indicator_jobs.py — hourly deterministic indicator collection at XX:23 UTC; reads Binance OHLCV/tickers and Bybit mark prices, then persists indicators
