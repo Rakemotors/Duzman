@@ -35,6 +35,11 @@ src-layout, editable install через .venv/bin/python -m pip install -e .
 - Realized Volatility 24h — annualized volatility по 1h close returns, минимум 25 свечей
 - Premium/Discount — (perp_price - spot_price) / spot_price * 100
 
+### Pattern Engine — Config Layer
+
+- `src/duzman/patterns/` — Pydantic v2 models and `load_patterns()` for `config/patterns.yaml`; validates known metrics, operators, Stage A assets, unique names, and nested all/any condition groups.
+- `config/patterns.yaml` — 10 deterministic Appendix A v1.4 pattern definitions; A.6/A.7 use `per_asset_thresholds` for BTC/ETH ETF flow thresholds.
+
 ### Scheduler
 
 - indicator_jobs.py — hourly deterministic indicator collection at XX:23 UTC; reads Binance OHLCV/tickers and Bybit mark prices, then persists indicators

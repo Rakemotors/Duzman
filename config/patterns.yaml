@@ -1,0 +1,187 @@
+patterns:
+  # A.1
+  - name: leveraged_long_buildup
+    display_name: "Лонги накапливаются на росте"
+    severity: WARNING
+    applies_to: [BTC, ETH, SOL]
+    cooldown_hours: 6
+    conditions:
+      all:
+        - metric: RSI_4h
+          operator: ">"
+          value: 65
+        - metric: funding_rate_avg
+          operator: ">"
+          value: 0.03
+        - metric: oi_change_24h_pct
+          operator: ">"
+          value: 8
+        - metric: price_change_24h_pct
+          operator: ">"
+          value: 2
+
+  # A.2
+  - name: leveraged_short_buildup
+    display_name: "Шорты накапливаются на падении"
+    severity: WARNING
+    applies_to: [BTC, ETH, SOL]
+    cooldown_hours: 6
+    conditions:
+      all:
+        - metric: RSI_4h
+          operator: "<"
+          value: 35
+        - metric: funding_rate_avg
+          operator: "<"
+          value: -0.03
+        - metric: oi_change_24h_pct
+          operator: ">"
+          value: 8
+        - metric: price_change_24h_pct
+          operator: "<"
+          value: -2
+
+  # A.3-majors
+  - name: capitulation_candidate_majors
+    display_name: "Капитуляция на majors"
+    severity: CRITICAL
+    applies_to: [BTC, ETH]
+    cooldown_hours: 4
+    conditions:
+      all:
+        - metric: RSI_1d
+          operator: "<"
+          value: 30
+        - metric: funding_rate_avg
+          operator: "<"
+          value: -0.05
+        - metric: liquidations_longs_24h_usd
+          operator: ">"
+          value: 100000000
+        - metric: fear_greed_index
+          operator: "<"
+          value: 25
+
+  # A.3-alts
+  - name: capitulation_candidate_alts
+    display_name: "Капитуляция на альтах"
+    severity: CRITICAL
+    applies_to: [SOL, SUI, TON, UNI]
+    cooldown_hours: 4
+    conditions:
+      all:
+        - metric: RSI_1d
+          operator: "<"
+          value: 30
+        - metric: funding_rate_avg
+          operator: "<"
+          value: -0.05
+        - metric: liquidations_longs_24h_usd
+          operator: ">"
+          value: 20000000
+        - metric: fear_greed_index
+          operator: "<"
+          value: 25
+
+  # A.4-majors
+  - name: distribution_top_candidate_majors
+    display_name: "Эйфория на majors"
+    severity: CRITICAL
+    applies_to: [BTC, ETH]
+    cooldown_hours: 4
+    conditions:
+      all:
+        - metric: RSI_1d
+          operator: ">"
+          value: 70
+        - metric: funding_rate_avg
+          operator: ">"
+          value: 0.05
+        - metric: liquidations_shorts_24h_usd
+          operator: ">"
+          value: 100000000
+        - metric: fear_greed_index
+          operator: ">"
+          value: 75
+
+  # A.4-alts
+  - name: distribution_top_candidate_alts
+    display_name: "Эйфория на альтах"
+    severity: CRITICAL
+    applies_to: [SOL, SUI, TON, UNI]
+    cooldown_hours: 4
+    conditions:
+      all:
+        - metric: RSI_1d
+          operator: ">"
+          value: 70
+        - metric: funding_rate_avg
+          operator: ">"
+          value: 0.05
+        - metric: liquidations_shorts_24h_usd
+          operator: ">"
+          value: 20000000
+        - metric: fear_greed_index
+          operator: ">"
+          value: 75
+
+  # A.5
+  - name: funding_dislocation
+    display_name: "Расхождение funding между биржами"
+    severity: WARNING
+    applies_to: [BTC, ETH, SOL, SUI, TON, UNI]
+    cooldown_hours: 4
+    conditions:
+      all:
+        - metric: funding_dislocation_pct
+          operator: ">"
+          value: 0.05
+
+  # A.6
+  - name: etf_accumulation_strong
+    display_name: "Сильное накопление в спотовых ETF"
+    severity: INFO
+    applies_to: [BTC, ETH]
+    cooldown_hours: 24
+    conditions:
+      all:
+        - metric: etf_net_flow_streak_days
+          operator: ">="
+          value: 5
+        - metric: etf_cum_flow_5d_usd
+          operator: ">"
+          per_asset_thresholds:
+            BTC: 1000000000
+            ETH: 200000000
+
+  # A.7
+  - name: etf_distribution_strong
+    display_name: "Сильное распределение из спотовых ETF"
+    severity: WARNING
+    applies_to: [BTC, ETH]
+    cooldown_hours: 24
+    conditions:
+      all:
+        - metric: etf_net_flow_streak_days
+          operator: "<="
+          value: -5
+        - metric: etf_cum_flow_5d_usd
+          operator: "<"
+          per_asset_thresholds:
+            BTC: -500000000
+            ETH: -100000000
+
+  # A.8
+  - name: altcoin_underperformance
+    display_name: "Альткоин отстаёт от BTC"
+    severity: WARNING
+    applies_to: [SOL, SUI, TON, UNI]
+    cooldown_hours: 24
+    conditions:
+      all:
+        - metric: btc_dominance_change_7d_pct
+          operator: ">"
+          value: 1
+        - metric: price_vs_btc_change_7d_pct
+          operator: "<"
+          value: -5
