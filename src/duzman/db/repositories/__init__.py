@@ -6,10 +6,12 @@ from duzman.db.repositories.liquidation_repository import (
     HeatmapRepository,
     LiquidationRepository,
 )
+from duzman.db.repositories.snapshot_repository import SnapshotReadRepository
 
 __all__ = [
     "ETFFlowRepository",
     "GlobalMetricRepository",
     "HeatmapRepository",
     "LiquidationRepository",
+    "SnapshotReadRepository",
 ]

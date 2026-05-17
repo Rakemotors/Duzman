@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Personal crypto metrics monitor"
 requires-python = ">=3.12"
 dependencies = [
+    "aiosqlite",
     "beautifulsoup4",
     "lxml",
     "pandas-ta",

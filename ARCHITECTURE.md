@@ -40,6 +40,13 @@ src-layout, editable install через .venv/bin/python -m pip install -e .
 - `src/duzman/patterns/` — Pydantic v2 models and `load_patterns()` for `config/patterns.yaml`; validates known metrics, operators, Stage A assets, unique names, and nested all/any condition groups.
 - `config/patterns.yaml` — 10 deterministic Appendix A v1.4 pattern definitions; A.6/A.7 use `per_asset_thresholds` for BTC/ETH ETF flow thresholds.
 
+### Pattern Engine — Snapshot Layer
+
+- `src/duzman/patterns/snapshot.py` — async `build_snapshot(session, assets, now)` builds immutable `MetricsSnapshot` and per-asset `AssetMetrics` from `KNOWN_METRICS`; global metrics are kept separate from asset values.
+- `src/duzman/db/repositories/snapshot_repository.py` — read repository for snapshot source rows; direct mappings cover RSI, Stochastic, volatility, premium/discount, price changes, liquidations, Fear & Greed, and BTC dominance.
+- Derived calculations are computed at snapshot time: funding average/dislocation, 24h OI change, ETF streak, ETF cumulative five-day flow in USD, price-vs-BTC seven-day change, and BTC dominance seven-day percentage-point change.
+- Missing, stale, inapplicable, or failed metric calculations degrade to `None`; per-derived failures log `derived_metric_failed`, and successful builds log `snapshot_built` with asset and populated-metric counts.
+
 ### Scheduler
 
 - indicator_jobs.py — hourly deterministic indicator collection at XX:23 UTC; reads Binance OHLCV/tickers and Bybit mark prices, then persists indicators
