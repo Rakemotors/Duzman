@@ -7,7 +7,7 @@
 # - require explicit approval for dangerous command classes via rules.
 
 sandbox_mode = "workspace-write"
-approval_policy = "on-request"
+approval_policy = "on-failure"
 
 [sandbox_workspace_write]
 network_access = false
