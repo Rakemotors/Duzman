@@ -6,32 +6,6 @@
 
 ---
 
-## Изменения в версии 1.5
-
-Версия 1.5 выпускается перед Спекой 4 дня 6 (AlertGate). Содержит формализацию
-порядка проверок в AlertGate и определение источника правды для счётчиков на
-дне 6.
-
-Содержательные изменения:
-
-- Раздел 4.6: добавлен явный порядок проверок AlertGate
-  (cooldown -> daily hard cap -> hourly hard cap -> soft cap) и явное
-  определение того, что в счётчики soft cap (3/час) и hourly hard cap (10/час)
-  входят только решения ALLOW. Suppress-решения фиксируются в pattern_triggers,
-  но не накручивают счётчики
-- Раздел 7.7: добавлено, что на дне 6 AlertGate сохраняет своё решение
-  (GateDecision) в pattern_triggers.conditions_snapshot.gate_decision как
-  временный источник правды для счётчиков. На дне 7 после реализации Telegram
-  источником станет alerts_sent
-- Приложение Б: добавлен комментарий к pattern_triggers.conditions_snapshot
-  про поле gate_decision на дне 6
-
-Что НЕ изменилось: стек технологий, схема БД (изменений в DDL нет), перечень
-метрик, hard caps из раздела 0.2, перечень шаблонов из Приложения А, граница
-этапа А/Б, workflow с агентами (Приложение Е).
-
----
-
 ## Изменения в версии 1.4
 
 Версия 1.4 выпускается перед началом дня 6 (Pattern Engine). Содержит
@@ -434,29 +408,6 @@ Hard cap — защита от багов (см. раздел 0.2):
 - Не более 30 алертов в сутки суммарно (включая CRITICAL). При превышении pattern engine останавливается до 00:00 UTC, в системный Telegram-канал отправляется алерт о срабатывании hard cap
 - Сводное сообщение «N suppressed» само НЕ учитывается в счётчиках 3/час и 10/час
 
-Порядок проверок в AlertGate (от строгого к мягкому):
-
-1. Cooldown по `dedup_key` — если в окне cooldown уже был ALLOW по тому же шаблону на том же активе, текущий триггер подавляется (`SUPPRESS_COOLDOWN`)
-2. Hard cap 30/сутки — если суточный счётчик ALLOW достиг 30, pattern engine остановлен до 00:00 UTC; все триггеры (включая CRITICAL) подавляются (`SUPPRESS_HARD_CAP_DAY`)
-3. Hard cap 10/час — если часовой счётчик ALLOW достиг 10, триггер подавляется (включая CRITICAL) (`SUPPRESS_HARD_CAP_HOUR`)
-4. Soft cap 3/час — если часовой счётчик ALLOW достиг 3 и severity не CRITICAL, триггер подавляется (`SUPPRESS_SOFT_CAP`)
-5. Иначе — `ALLOW`
-
-Если ни одна проверка не сработала — решение `ALLOW`. CRITICAL обходит только soft cap (шаг 4), но всё ещё подчиняется cooldown и обоим hard cap.
-
-Что считается в счётчики:
-
-- В часовой счётчик (3/час и 10/час) и в суточный счётчик (30/сутки) входят ИСКЛЮЧИТЕЛЬНО решения `ALLOW`
-- Решения `SUPPRESS_COOLDOWN`, `SUPPRESS_SOFT_CAP`, `SUPPRESS_HARD_CAP_HOUR`, `SUPPRESS_HARD_CAP_DAY` записываются в `pattern_triggers`, но в счётчики не входят
-- Сводное сообщение «N suppressed» в счётчики не входит
-- Часовой счётчик сбрасывается на границе часа UTC; суточный — на границе суток UTC
-
-Источник правды для счётчиков:
-
-- На дне 6 (Telegram-отправка ещё не реализована) AlertGate сохраняет своё решение в поле `pattern_triggers.conditions_snapshot.gate_decision` (одно из `ALLOW` / `SUPPRESS_COOLDOWN` / `SUPPRESS_SOFT_CAP` / `SUPPRESS_HARD_CAP_HOUR` / `SUPPRESS_HARD_CAP_DAY`). Счётчики ALLOW рассчитываются как `COUNT(*) FROM pattern_triggers WHERE conditions_snapshot->>'gate_decision' = 'ALLOW' AND ts >= window_start`
-- На дне 7 после реализации Telegram-отправки источником правды для счётчиков становится таблица `alerts_sent`. Поле `gate_decision` в `conditions_snapshot` остаётся как audit trail для всех Suppress-решений
-
-
 ### 4.7. Daily Digest
 
 Раз в сутки в 06:17 UTC одно сообщение со сводкой за 24 часа. Не входит в дневной лимит.
@@ -802,9 +753,9 @@ duzman/
 - Загрузка `patterns.yaml`
 - Pattern engine, evaluation
 - Cooldown logic с дефолтом 2 часа
-- AlertGate: cooldown -> daily hard cap -> hourly hard cap -> soft cap (порядок и определения см. раздел 4.6)
+- AlertGate: soft cap 3/час, hard caps 10/час и 30/сутки (раздел 4.6 и 0.2)
 - Записи в `pattern_triggers` создаются для каждого сработавшего шаблона независимо от решения AlertGate; поле `alert_sent` остаётся FALSE на дне 6 и обновляется на TRUE на дне 7 после успешной отправки в Telegram
-- На дне 6 физическая отправка в Telegram НЕ реализуется (это день 7). AlertGate возвращает `GateDecision` (одно из `ALLOW`, `SUPPRESS_COOLDOWN`, `SUPPRESS_SOFT_CAP`, `SUPPRESS_HARD_CAP_HOUR`, `SUPPRESS_HARD_CAP_DAY`) и сохраняет его в `pattern_triggers.conditions_snapshot.gate_decision`. Это временный источник правды для счётчиков на дне 6; на дне 7 счётчики переходят на `alerts_sent`
+- На дне 6 физическая отправка в Telegram НЕ реализуется (это день 7). AlertGate возвращает только решение «отправить/подавить», фактическая отправка появляется на дне 7
 - Тестирование 10 шаблонов на исторических данных (фикстуры с предзаписанными значениями метрик)
 
 ### 7.8. День 7 — Telegram и AI
@@ -1142,11 +1093,6 @@ CREATE TABLE pattern_triggers (
     asset VARCHAR(10) REFERENCES assets(symbol),
     severity VARCHAR(10) NOT NULL,
     conditions_snapshot JSONB,
-    -- conditions_snapshot хранит снапшот значений метрик на момент срабатывания
-    -- шаблона. На дне 6 (v1.5) также содержит поле gate_decision: одно из ALLOW,
-    -- SUPPRESS_COOLDOWN, SUPPRESS_SOFT_CAP, SUPPRESS_HARD_CAP_HOUR, SUPPRESS_HARD_CAP_DAY.
-    -- Используется AlertGate как временный источник правды для счётчиков
-    -- soft/hard cap до реализации alerts_sent на дне 7
     ai_explanation TEXT,
     alert_sent BOOLEAN DEFAULT FALSE,
     user_feedback VARCHAR(20),
@@ -1341,4 +1287,3 @@ git checkout -- <file>  # откатить один файл
 | 1.2 | 13 мая 2026 | После аудита. Hard caps, граница А/Б, Spec format, Глоссарий |
 | 1.3 | 16 мая 2026 | После дней 1-3. Разделение dev/prod, процесс изменения ТЗ, ingestion endpoints, runtime модуль, переструктуризация дней 3-4, мультиагентный workflow (Приложение Е) |
 | 1.4 | 17 мая 2026 | Перед днём 6. Расщепление А.3/А.4 в Приложении А на _majors/_alts (10 шаблонов вместо 8). Переписан раздел 4.6 (явная трёхуровневая иерархия cooldown / soft cap 3/час / hard cap 10/час / hard cap 30/сутки). Уточнения по dev/prod в 0.3 (duzman vs duzman_app, общая БД для dev/prod) |
-| 1.5 | 17 мая 2026 | Перед Спекой 4 дня 6 (AlertGate). Раздел 4.6 дополнен явным порядком проверок (cooldown -> daily hard cap -> hourly hard cap -> soft cap) и определением источника правды для счётчиков (только ALLOW; на дне 6 — через pattern_triggers.conditions_snapshot.gate_decision; на дне 7 — через alerts_sent). Раздел 7.7 и Приложение Б синхронно дополнены |
