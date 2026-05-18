@@ -55,6 +55,12 @@ src-layout, editable install через .venv/bin/python -m pip install -e .
 - Condition groups support recursive `all`/`any` semantics, and per-asset thresholds take precedence over scalar condition values when present.
 - Per-pattern evaluation failures log `pattern_evaluation_failed` and do not stop evaluation of other patterns or assets.
 
+### Pattern Engine — AlertGate Layer
+
+- `src/duzman/patterns/alert_gate.py` — pure async decision layer between evaluation and persistence; applies cooldown, daily hard cap, hourly hard cap, and soft cap in TZ v1.6 order, with CRITICAL bypassing only the soft cap.
+- `src/duzman/db/repositories/pattern_trigger_repository.py` — persists day-6 pattern trigger rows and reads ALLOW counters from `pattern_triggers.conditions_snapshot.gate_decision`; callers own transaction commits.
+- Day 6 does not send Telegram messages and does not write `alerts_sent`; `alert_sent` remains false, and the AlertGate decision is stored in `conditions_snapshot.gate_decision` until day-7 dispatch integration.
+
 ### Scheduler
 
 - indicator_jobs.py — hourly deterministic indicator collection at XX:23 UTC; reads Binance OHLCV/tickers and Bybit mark prices, then persists indicators
