@@ -55,8 +55,25 @@ class AlertGate:
         repository: Repository used to query prior ALLOW decisions.
     """
 
-    def __init__(self, repository: PatternTriggerRepository) -> None:
+    def __init__(
+        self,
+        repository: PatternTriggerRepository,
+        soft_cap_per_hour: int = 3,
+        hard_cap_per_hour: int = 10,
+        hard_cap_per_day: int = 30,
+    ) -> None:
+        """Initialize the gate with repository-backed alert caps.
+
+        Parameters:
+            repository: Repository used to query prior ALLOW decisions.
+            soft_cap_per_hour: Hourly soft cap bypassed by CRITICAL triggers.
+            hard_cap_per_hour: Hourly hard cap applied to all severities.
+            hard_cap_per_day: Daily hard cap applied to all severities.
+        """
         self.repository = repository
+        self.soft_cap_per_hour = soft_cap_per_hour
+        self.hard_cap_per_hour = hard_cap_per_hour
+        self.hard_cap_per_day = hard_cap_per_day
 
     async def evaluate(
         self,
@@ -92,22 +109,23 @@ class AlertGate:
         ):
             return GateDecision.SUPPRESS_COOLDOWN
 
+        counter_window_end = _include_current_tick(trigger.ts)
         daily_count = await self.repository.count_allow_in_window(
             session,
             window_start=_floor_to_day_utc(trigger.ts),
-            window_end=trigger.ts,
+            window_end=counter_window_end,
         )
-        if daily_count >= 30:
+        if daily_count >= self.hard_cap_per_day:
             return GateDecision.SUPPRESS_HARD_CAP_DAY
 
         hourly_count = await self.repository.count_allow_in_window(
             session,
             window_start=_floor_to_hour_utc(trigger.ts),
-            window_end=trigger.ts,
+            window_end=counter_window_end,
         )
-        if hourly_count >= 10:
+        if hourly_count >= self.hard_cap_per_hour:
             return GateDecision.SUPPRESS_HARD_CAP_HOUR
-        if hourly_count >= 3 and trigger.severity != "CRITICAL":
+        if hourly_count >= self.soft_cap_per_hour and trigger.severity != "CRITICAL":
             return GateDecision.SUPPRESS_SOFT_CAP
         return GateDecision.ALLOW
 
@@ -122,6 +140,12 @@ def _floor_to_day_utc(ts: datetime) -> datetime:
     """Return the start of the UTC day for a timestamp."""
     _assert_aware_utc(ts)
     return datetime(ts.year, ts.month, ts.day, 0, 0, 0, tzinfo=timezone.utc)
+
+
+def _include_current_tick(ts: datetime) -> datetime:
+    """Return a counter upper bound that includes committed rows at `ts`."""
+    _assert_aware_utc(ts)
+    return ts + timedelta(microseconds=1)
 
 
 def _assert_aware_utc(ts: datetime) -> None:

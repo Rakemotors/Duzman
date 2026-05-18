@@ -59,7 +59,12 @@ src-layout, editable install через .venv/bin/python -m pip install -e .
 
 - `src/duzman/patterns/alert_gate.py` — pure async decision layer between evaluation and persistence; applies cooldown, daily hard cap, hourly hard cap, and soft cap in TZ v1.6 order, with CRITICAL bypassing only the soft cap.
 - `src/duzman/db/repositories/pattern_trigger_repository.py` — persists day-6 pattern trigger rows and reads ALLOW counters from `pattern_triggers.conditions_snapshot.gate_decision`; callers own transaction commits.
-- Day 6 does not send Telegram messages and does not write `alerts_sent`; `alert_sent` remains false, and the AlertGate decision is stored in `conditions_snapshot.gate_decision` until day-7 dispatch integration.
+- `src/duzman/scheduler/hourly_tick.py` — hourly Pattern Engine integration; builds one tick timestamp, evaluates patterns, runs one transaction per `(AlertGate.evaluate + insert_trigger)`, and dispatches only ALLOW matches after all gate transactions are committed.
+- Day 6 does not write `alerts_sent`; `alert_sent` remains false, and the AlertGate decision is stored in `conditions_snapshot.gate_decision` until day-7 dispatch persistence integration.
+
+#### Known Limitations
+
+Two-phase read-then-write in evaluate (`count_allow_in_window`/`cooldown_hit`, then `insert_trigger`) is not atomic. This is acceptable under the single-threaded hourly scheduler: one tick at a time, transaction per match commits before the next match. Revisit if concurrency is added: options are PostgreSQL advisory locks per `(asset, pattern_id)`, or `SELECT FOR UPDATE` on a per-pattern lock row.
 
 ### Scheduler
 
