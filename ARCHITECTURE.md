@@ -2,7 +2,7 @@
 
 Текущее состояние архитектуры по дням реализации. Обновляется в конце каждой задачи.
 
-## Состояние на конец дня 3
+## Состояние на конец дня 6
 
 ### Структура
 
@@ -61,6 +61,15 @@ src-layout, editable install через .venv/bin/python -m pip install -e .
 - `src/duzman/db/repositories/pattern_trigger_repository.py` — persists day-6 pattern trigger rows and reads ALLOW counters from `pattern_triggers.conditions_snapshot.gate_decision`; callers own transaction commits.
 - `src/duzman/scheduler/hourly_tick.py` — hourly Pattern Engine integration; builds one tick timestamp, evaluates patterns, runs one transaction per `(AlertGate.evaluate + insert_trigger)`, and dispatches only ALLOW matches after all gate transactions are committed.
 - Day 6 does not write `alerts_sent`; `alert_sent` remains false, and the AlertGate decision is stored in `conditions_snapshot.gate_decision` until day-7 dispatch persistence integration.
+- Alembic migration `b009e25bfab4` creates `pattern_triggers` for persisted day-6 Pattern Engine matches and gate decisions.
+
+### Day 6 Implemented Baseline
+
+- Pattern evaluation pipeline: `src/duzman/patterns/evaluation.py`
+- AlertGate decision layer: `src/duzman/patterns/alert_gate.py`
+- Pattern trigger repository: `src/duzman/db/repositories/pattern_trigger_repository.py`
+- Hourly Pattern Engine tick: `src/duzman/scheduler/hourly_tick.py`
+- `pattern_triggers` schema migration: Alembic revision `b009e25bfab4`
 
 #### Known Limitations
 
@@ -83,15 +92,15 @@ Two-phase read-then-write in evaluate (`count_allow_in_window`/`cooldown_hit`, t
 
 ### Тесты
 
-pytest, async, моки httpx. Все 92 теста зелёные на дне 3. Никаких живых API.
+pytest, async, моки httpx. Все 268 тестов зелёные на дне 6. Никаких живых API.
 
-### Что НЕ реализовано на конец дня 3
+### Что НЕ реализовано на конец дня 6
 
-- Bybit и OKX коллекторы (день 4)
-- Индикаторы RSI, Stochastic, Volatility (день 4)
-- Premium/Discount (день 4)
-- ETF flows, CoinGlass, BTC dominance, Fear&Greed (день 5)
-- Pattern Engine (день 6)
-- Telegram, AI-объяснения (день 7)
-- Дашборд, /api/v1/ роуты (день 8)
-- Production deployment, бэкапы (день 9)
+- Telegram-отправка алертов
+- AI-объяснения через Anthropic API
+- Дашборд: FastAPI `/api/v1/` полностью, HTML + Plotly.js
+- Caddy + HTTPS
+- Deploy script в `/opt/duzman`
+- Daily backup в Telegram + weekly OneDrive
+- Retention job
+- Daily digest
