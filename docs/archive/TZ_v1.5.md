@@ -1,20 +1,8 @@
-# Duzman — Техническое задание v1.6
+# Duzman — Техническое задание v1.4
 
-Персональный crypto metrics monitor. Этап А.
+**Персональный crypto metrics monitor. Этап А.**
 
-Версия 1.6 · 18 мая 2026
-
----
-
-## Изменения в версии 1.6
-
-Версия 1.6 выпускается перед началом реализации Спеки 4 дня 6 (AlertGate). Содержит одно техническое уточнение по месту реализации дефолта cooldown.
-
-Содержательные изменения:
-
-- Раздел 4.6: явно зафиксировано, что дефолт `cooldown_hours = 2 часа` для шаблонов, у которых поле явно не задано в `patterns.yaml`, реализуется в Pydantic-модели `PatternDefinition` (`src/duzman/patterns/models.py`) на этапе загрузки конфигурации (Спека 1 дня 6). AlertGate всегда получает заполненное значение и НЕ содержит собственного fallback по cooldown
-
-Что НЕ изменилось: стек технологий, схема БД (изменений в DDL нет), перечень метрик, hard caps из раздела 0.2, перечень шаблонов из Приложения А, граница этапа А/Б, workflow с агентами (Приложение Е), порядок проверок AlertGate, источник правды для счётчиков на дне 6 (`pattern_triggers.conditions_snapshot.gate_decision`).
+Версия 1.4 · 17 мая 2026
 
 ---
 
@@ -27,16 +15,16 @@
 Содержательные изменения:
 
 - Раздел 4.6: добавлен явный порядок проверок AlertGate
-(cooldown -> daily hard cap -> hourly hard cap -> soft cap) и явное
-определение того, что в счётчики soft cap (3/час) и hourly hard cap (10/час)
-входят только решения ALLOW. Suppress-решения фиксируются в pattern_triggers,
-но не накручивают счётчики
+  (cooldown -> daily hard cap -> hourly hard cap -> soft cap) и явное
+  определение того, что в счётчики soft cap (3/час) и hourly hard cap (10/час)
+  входят только решения ALLOW. Suppress-решения фиксируются в pattern_triggers,
+  но не накручивают счётчики
 - Раздел 7.7: добавлено, что на дне 6 AlertGate сохраняет своё решение
-(GateDecision) в pattern_triggers.conditions_snapshot.gate_decision как
-временный источник правды для счётчиков. На дне 7 после реализации Telegram
-источником станет alerts_sent
+  (GateDecision) в pattern_triggers.conditions_snapshot.gate_decision как
+  временный источник правды для счётчиков. На дне 7 после реализации Telegram
+  источником станет alerts_sent
 - Приложение Б: добавлен комментарий к pattern_triggers.conditions_snapshot
-про поле gate_decision на дне 6
+  про поле gate_decision на дне 6
 
 Что НЕ изменилось: стек технологий, схема БД (изменений в DDL нет), перечень
 метрик, hard caps из раздела 0.2, перечень шаблонов из Приложения А, граница
@@ -123,7 +111,7 @@ caps из раздела 0.2, граница этапа А/Б, workflow с аг�
 Эти лимиты — защита от багов. При превышении система выполняет соответствующее защитное действие, не пытается «исправиться» автоматически.
 
 | Что лимитируется | Значение | Действие при превышении |
-| --- | --- | --- |
+|---|---|---|
 | Алерты в Telegram в час | 10 | Дальнейшие алерты до конца часа в очередь, в Telegram сводный «N suppressed» |
 | Алерты в Telegram в сутки | 30 | Pattern engine остановлен до 00:00 UTC, алерт в системный канал |
 | Расход Anthropic API в месяц | $5 | AI-объяснения отключаются до конца месяца |
@@ -168,8 +156,8 @@ Linux-пользователь duzman и PostgreSQL-роль duzman_app — ра
 - Если агент в процессе работы обнаруживает что ТЗ требует доработки — он останавливается, описывает проблему и предлагаемое изменение, ждёт решения от Operator
 - Operator принимает решение: вернуть реализацию к ТЗ, либо обновить ТЗ. Не «принять отклонение по факту»
 - Изменения ТЗ вносятся через web-чат с Claude. Claude формирует новую версию документа с CHANGELOG в начале
-- Новая версия ТЗ заменяет старую в репозитории (`docs/TZ.md`)
-- Старые версии ТЗ архивируются в `docs/archive/TZ_vX.Y.md`
+- Новая версия ТЗ заменяет старую в репозитории (`docs/TZ_vX.Y.md`)
+- Старые версии ТЗ архивируются в `docs/archive/`
 
 ---
 
@@ -177,7 +165,7 @@ Linux-пользователь duzman и PostgreSQL-роль duzman_app — ра
 
 Этот документ — техническое задание на этап А проекта Duzman, персонального инструмента мониторинга крипто-метрик. Документ описывает что строится, как оно работает, из каких компонентов состоит, и в какой последовательности реализуется.
 
-Версия 1.6 — рабочая версия перед началом реализации Спеки 4 дня 6 (AlertGate). Включает разделение dev/prod, процесс изменения ТЗ, формализацию работы нескольких AI-агентов, структуру шаблонов и алерт-лимитов для pattern engine, явный порядок проверок AlertGate и определение источника правды для счётчиков.
+Версия 1.4 — рабочая версия перед началом дня 6. Включает разделение dev/prod, процесс изменения ТЗ, формализацию работы нескольких AI-агентов и подготовку структуры шаблонов и алерт-лимитов для pattern engine.
 
 Целевая аудитория документа:
 
@@ -368,7 +356,7 @@ ETF flows собираются раз в день в 02:17 UTC (это 21:17 NY 
 
 Каждый шаблон описан в `config/patterns.yaml`. Пример:
 
-```
+```yaml
 - name: "leveraged_long_buildup"
   display_name: "Лонги накапливаются на росте"
   severity: WARNING
@@ -430,7 +418,7 @@ Post-processing фильтр проверяет запрещённые фраз�
 Cooldown:
 
 - Cooldown по `dedup_key` = `pattern_name + asset` — настраивается per pattern в `config/patterns.yaml` через поле `cooldown_hours`
-- Default cooldown: если поле `cooldown_hours` явно не задано в `patterns.yaml` — значение 2 часа подставляется Pydantic-моделью `PatternDefinition` (`src/duzman/patterns/models.py`) на этапе загрузки конфигурации (Спека 1 дня 6). Это единственное место реализации дефолта. AlertGate всегда получает заполненное значение и НЕ содержит собственного fallback по cooldown
+- Default cooldown: если не указан явно — 2 часа
 - В пределах окна cooldown повторное срабатывание того же шаблона на том же активе фиксируется в БД (`pattern_triggers`), но в Telegram не отправляется
 
 Soft cap — глобальный лимит интенсивности:
@@ -467,6 +455,7 @@ Hard cap — защита от багов (см. раздел 0.2):
 
 - На дне 6 (Telegram-отправка ещё не реализована) AlertGate сохраняет своё решение в поле `pattern_triggers.conditions_snapshot.gate_decision` (одно из `ALLOW` / `SUPPRESS_COOLDOWN` / `SUPPRESS_SOFT_CAP` / `SUPPRESS_HARD_CAP_HOUR` / `SUPPRESS_HARD_CAP_DAY`). Счётчики ALLOW рассчитываются как `COUNT(*) FROM pattern_triggers WHERE conditions_snapshot->>'gate_decision' = 'ALLOW' AND ts >= window_start`
 - На дне 7 после реализации Telegram-отправки источником правды для счётчиков становится таблица `alerts_sent`. Поле `gate_decision` в `conditions_snapshot` остаётся как audit trail для всех Suppress-решений
+
 
 ### 4.7. Daily Digest
 
@@ -649,7 +638,7 @@ Selective backup — только незаменимое:
 ### 6.2. Стек технологий
 
 | Технология | Выбор | Обоснование |
-| --- | --- | --- |
+|---|---|---|
 | Язык | Python 3.12 | Финансовая экосистема, pandas-ta |
 | Web framework | FastAPI | Async, OpenAPI, Pydantic |
 | БД | PostgreSQL 16 | Надёжность, JSONB |
@@ -812,7 +801,7 @@ duzman/
 
 - Загрузка `patterns.yaml`
 - Pattern engine, evaluation
-- Cooldown logic с дефолтом 2 часа (реализуется в Pydantic-модели `PatternDefinition` на этапе загрузки конфигурации; AlertGate работает с заполненным `cooldown_hours` и собственного fallback не имеет)
+- Cooldown logic с дефолтом 2 часа
 - AlertGate: cooldown -> daily hard cap -> hourly hard cap -> soft cap (порядок и определения см. раздел 4.6)
 - Записи в `pattern_triggers` создаются для каждого сработавшего шаблона независимо от решения AlertGate; поле `alert_sent` остаётся FALSE на дне 6 и обновляется на TRUE на дне 7 после успешной отправки в Telegram
 - На дне 6 физическая отправка в Telegram НЕ реализуется (это день 7). AlertGate возвращает `GateDecision` (одно из `ALLOW`, `SUPPRESS_COOLDOWN`, `SUPPRESS_SOFT_CAP`, `SUPPRESS_HARD_CAP_HOUR`, `SUPPRESS_HARD_CAP_DAY`) и сохраняет его в `pattern_triggers.conditions_snapshot.gate_decision`. Это временный источник правды для счётчиков на дне 6; на дне 7 счётчики переходят на `alerts_sent`
@@ -928,7 +917,7 @@ duzman/
 ### 9.1. Что входит в этап А
 
 | Категория | Конкретно |
-| --- | --- |
+|---|---|
 | Метрики | Цены, RSI, Stochastic, Funding, OI, Long/Short, Liquidations (упрощ. heatmap), ETF flows BTC/ETH, Volatility, BTC.D, Fear&Greed, Premium/Discount |
 | Активы | BTC, ETH, SOL, SUI, TON, UNI |
 | Биржи | Binance, Bybit, OKX (только public API) |
@@ -945,7 +934,7 @@ duzman/
 ### 9.2. Что входит в этап Б (НЕ делается сейчас)
 
 | Категория | Конкретно |
-| --- | --- |
+|---|---|
 | Дополнительные метрики | CVD, Exchange netflow, Stablecoin supply, DVOL, полноценная CoinGlass heatmap |
 | Sentiment | Twitter, Reddit, LunarCrush |
 | On-chain | Whale alerts, Glassnode, CryptoQuant |
@@ -969,7 +958,7 @@ duzman/
 
 ## Приложение А. Стартовый набор шаблонов
 
-Десять шаблонов. Default cooldown 2 часа, если не указан явно (реализуется в Pydantic-модели `PatternDefinition` на этапе загрузки конфигурации).
+Десять шаблонов. Default cooldown 2 часа, если не указан явно.
 
 Все шаблоны проверяются один раз в час после фазы сбора и расчёта индикаторов (job `patterns_evaluation` в XX:25 UTC по плану дня 6). Записи в `pattern_triggers` создаются для каждого сработавшего шаблона независимо от решения AlertGate.
 
@@ -1060,7 +1049,7 @@ duzman/
 
 PostgreSQL 16. Time-series таблицы имеют индекс `(ts DESC, asset)`.
 
-```
+```sql
 CREATE TABLE assets (
     symbol VARCHAR(10) PRIMARY KEY,
     name VARCHAR(50),
@@ -1154,7 +1143,7 @@ CREATE TABLE pattern_triggers (
     severity VARCHAR(10) NOT NULL,
     conditions_snapshot JSONB,
     -- conditions_snapshot хранит снапшот значений метрик на момент срабатывания
-    -- шаблона. На дне 6 (v1.5+) также содержит поле gate_decision: одно из ALLOW,
+    -- шаблона. На дне 6 (v1.5) также содержит поле gate_decision: одно из ALLOW,
     -- SUPPRESS_COOLDOWN, SUPPRESS_SOFT_CAP, SUPPRESS_HARD_CAP_HOUR, SUPPRESS_HARD_CAP_DAY.
     -- Используется AlertGate как временный источник правды для счётчиков
     -- soft/hard cap до реализации alerts_sent на дне 7
@@ -1211,7 +1200,7 @@ CREATE TABLE source_health (
 
 ### В.3. Откат после ошибок
 
-```
+```bash
 git status              # посмотреть изменения
 git diff                # понять что именно
 git reset --hard HEAD   # откатить всё
@@ -1270,7 +1259,7 @@ git checkout -- <file>  # откатить один файл
 ### Е.1. Роли
 
 | Агент | Где | Роль |
-| --- | --- | --- |
+|---|---|---|
 | Claude (web-чат) | claude.ai | Архитектор, авторский надзор, ревью, изменения ТЗ |
 | ChatGPT (web) | chatgpt.com | Второй планирующий слой, оценка решений |
 | Claude Code | `~/duzman` на VPS | Исполнитель кода под Anthropic skills |
@@ -1278,7 +1267,7 @@ git checkout -- <file>  # откатить один файл
 
 ### Е.2. Источник правды
 
-Единственный источник правды — текущая версия ТЗ (на момент 18 мая 2026 это v1.6, файл `docs/TZ.md` в репозитории).
+Единственный источник правды — текущая версия ТЗ (на момент 16 мая 2026 это v1.3, файл `docs/TZ.md` в репозитории).
 
 Все агенты при старте задачи читают `docs/TZ.md`. Отклонения от ТЗ не допускаются (см. раздел 0.4).
 
@@ -1339,18 +1328,17 @@ git checkout -- <file>  # откатить один файл
 
 ## Заключение
 
-Версия 1.6 — рабочая версия перед началом реализации Спеки 4 дня 6 (AlertGate). Включает уточнения после дней 1-5 и подготовку структуры шаблонов и алерт-лимитов для pattern engine.
+Версия 1.4 — рабочая версия перед началом дня 6. Включает уточнения после дней 1-5 и подготовку структуры шаблонов и алерт-лимитов для pattern engine.
 
 После завершения этапа А и периода эксплуатации не менее 30 дней принимается решение о переходе к этапу Б.
 
 ### Контроль версий
 
 | Версия | Дата | Описание |
-| --- | --- | --- |
+|---|---|---|
 | 1.0 | 12 мая 2026 | Внутренний draft по секциям 1-7 |
 | 1.1 | 13 мая 2026 | Первая полная консолидированная версия |
 | 1.2 | 13 мая 2026 | После аудита. Hard caps, граница А/Б, Spec format, Глоссарий |
 | 1.3 | 16 мая 2026 | После дней 1-3. Разделение dev/prod, процесс изменения ТЗ, ingestion endpoints, runtime модуль, переструктуризация дней 3-4, мультиагентный workflow (Приложение Е) |
 | 1.4 | 17 мая 2026 | Перед днём 6. Расщепление А.3/А.4 в Приложении А на _majors/_alts (10 шаблонов вместо 8). Переписан раздел 4.6 (явная трёхуровневая иерархия cooldown / soft cap 3/час / hard cap 10/час / hard cap 30/сутки). Уточнения по dev/prod в 0.3 (duzman vs duzman_app, общая БД для dev/prod) |
 | 1.5 | 17 мая 2026 | Перед Спекой 4 дня 6 (AlertGate). Раздел 4.6 дополнен явным порядком проверок (cooldown -> daily hard cap -> hourly hard cap -> soft cap) и определением источника правды для счётчиков (только ALLOW; на дне 6 — через pattern_triggers.conditions_snapshot.gate_decision; на дне 7 — через alerts_sent). Раздел 7.7 и Приложение Б синхронно дополнены |
-| 1.6 | 18 мая 2026 | Перед началом реализации Спеки 4 дня 6 (AlertGate). Раздел 4.6 и 7.7 уточнены: дефолт `cooldown_hours = 2 часа` реализуется в Pydantic-модели `PatternDefinition` (`src/duzman/patterns/models.py`) на этапе загрузки конфигурации, AlertGate собственного fallback не имеет. Других изменений нет |
