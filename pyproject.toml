@@ -11,7 +11,7 @@ dependencies = [
     "aiosqlite",
     "beautifulsoup4",
     "lxml",
-    "pandas-ta",
+    "pandas-ta==0.4.67b0",
 ]
 
 [project.optional-dependencies]
