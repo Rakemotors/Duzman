@@ -1,6 +1,6 @@
 ---
 name: duzman-conventions
-description: Конвенции проекта Duzman. Применять автоматически при любой работе в репозитории duzman. Включает: src-layout, стиль docstrings, требования к тестам (pytest, async, моки), безопасность, обязательное обновление ARCHITECTURE.md в конце каждой задачи, разделение dev (~/duzman) и prod (/opt/duzman).
+description: Конвенции проекта Duzman. Применять автоматически при любой работе в репозитории duzman. Включает: src-layout, стиль docstrings, требования к тестам (pytest, async, моки), безопасность, обязательное обновление docs/ARCHITECTURE.md в конце каждой задачи, разделение dev (~/duzman) и prod (/opt/duzman).
 ---
 
 # Duzman project conventions
@@ -66,7 +66,7 @@ description: Конвенции проекта Duzman. Применять авт
    именованные константы, либо прокомментированы.
 
 Язык: всё на английском (код, комментарии, docstrings, commit
-messages, ARCHITECTURE.md, CHANGELOG.md, README.md).
+messages, docs/ARCHITECTURE.md, CHANGELOG.md, README.md).
 
 ### Импорты
 - Стандартная сортировка: stdlib → third-party → local
@@ -107,7 +107,7 @@ messages, ARCHITECTURE.md, CHANGELOG.md, README.md).
 
 ## 6. Документация
 
-### ARCHITECTURE.md
+### docs/ARCHITECTURE.md
 - Обновляется в конце каждой задачи. Это обязательное правило, не опциональное
 - Содержит: текущее состояние модулей, какие компоненты работают, какие в процессе, какие ещё не начаты
 - Краткие записи, не дублирующие ТЗ
@@ -118,7 +118,7 @@ messages, ARCHITECTURE.md, CHANGELOG.md, README.md).
 
 ### Docstrings и комментарии
 - На английском (стандарт open-source)
-- ARCHITECTURE.md, CHANGELOG.md, README.md — на английском
+- docs/ARCHITECTURE.md, CHANGELOG.md, README.md — на английском
 - Commit messages — на английском
 
 ## 7. Git workflow

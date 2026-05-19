@@ -61,7 +61,7 @@
    именованные константы, либо прокомментированы.
 
 Язык: всё на английском (код, комментарии, docstrings, commit
-messages, ARCHITECTURE.md, CHANGELOG.md, README.md).
+messages, docs/ARCHITECTURE.md, CHANGELOG.md, README.md).
 
 ### Импорты
 - Стандартная сортировка: stdlib → third-party → local
@@ -102,7 +102,7 @@ messages, ARCHITECTURE.md, CHANGELOG.md, README.md).
 
 ## 6. Документация
 
-### ARCHITECTURE.md
+### docs/ARCHITECTURE.md
 - Обновляется в конце каждой задачи. Это обязательное правило, не опциональное
 - Содержит: текущее состояние модулей, какие компоненты работают, какие в процессе, какие ещё не начаты
 - Краткие записи, не дублирующие ТЗ
@@ -113,7 +113,7 @@ messages, ARCHITECTURE.md, CHANGELOG.md, README.md).
 
 ### Docstrings и комментарии
 - На английском (стандарт open-source)
-- ARCHITECTURE.md, CHANGELOG.md, README.md — на английском
+- docs/ARCHITECTURE.md, CHANGELOG.md, README.md — на английском
 - Commit messages — на английском
 
 ## 7. Git workflow

@@ -1,4 +1,5 @@
 # Changelog
+[2026-05-18] [docs] PR 1.6: move ARCHITECTURE.md to docs/ARCHITECTURE.md and update references
 
 [2026-05-18] [build] PR 1.5: pin ruff/mypy dev deps and config
 [2026-05-18] [docs] PR 1: README link to docs/TZ.md, ARCHITECTURE.md updated to end-of-day-6 state
