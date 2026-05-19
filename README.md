@@ -2,7 +2,7 @@
 
 Персональный crypto metrics monitor. Этап А.
 
-См. техническое задание ([docs/TZ.md](docs/TZ.md)).
+См. Техническое задание v1.7 от 2026-05-19 ([docs/TZ.md](docs/TZ.md)).
 
 ## Local development
 
