@@ -90,7 +90,7 @@ caps из раздела 0.2, граница этапа А/Б, workflow с аг�
 - Раздел 0.3: разделение dev/prod директорий — разработка в `~/duzman` под пользователем `ubuntu`, production deployment в `/opt/duzman` под пользователем `duzman`
 - Раздел 0.4 (новый): процесс изменения ТЗ — ни один агент не отступает от ТЗ без явного апдейта документа
 - Раздел 4.9: добавлены read-only ingestion endpoints, реализованные на дне 3 (`/api/market-data/prices/latest`, `/source-health`, `/ingestion-status`, `/ingestion-alerts`)
-- Раздел 5.10: добавлен `ARCHITECTURE.md` — обновляется в конце каждой задачи
+- Раздел 5.10: добавлен `docs/ARCHITECTURE.md` — обновляется в конце каждой задачи
 - Раздел 6.3: добавлен модуль `src/duzman/runtime/` (entrypoints для one-shot команд и offline verification)
 - Раздел 7.3 (День 2): зафиксированы фактические артефакты — src-layout, editable install, pytest с моками httpx, `verify_local_database`
 - Раздел 7.4 (День 3): переструктурирован. День 3 = публичные коллекторы Binance/CoinGecko + ingestion health observability + read-only API foundation
@@ -612,10 +612,10 @@ Selective backup — только незаменимое:
 
 ### 5.10. Документация
 
-Новое в v1.3: добавлен `ARCHITECTURE.md` как обязательный документ, обновляемый в конце каждой задачи.
+Новое в v1.3: добавлен `docs/ARCHITECTURE.md` как обязательный документ, обновляемый в конце каждой задачи.
 
 - `README.md` — описание и quickstart
-- `ARCHITECTURE.md` — текущая архитектура. Обновляется любым агентом в конце каждой задачи
+- `docs/ARCHITECTURE.md` — текущая архитектура. Обновляется любым агентом в конце каждой задачи
 - `DEPLOYMENT.md` — развёртывание на новом VPS с нуля
 - `TROUBLESHOOTING.md` — 10+ типичных проблем
 - `CHANGELOG.md` — ведётся с дня 1
@@ -674,7 +674,7 @@ Selective backup — только незаменимое:
 
 ```
 duzman/
-├── README.md, ARCHITECTURE.md, DEPLOYMENT.md, TROUBLESHOOTING.md, CHANGELOG.md
+├── README.md, docs/ARCHITECTURE.md, DEPLOYMENT.md, TROUBLESHOOTING.md, CHANGELOG.md
 ├── pyproject.toml, .env.example, .gitignore
 ├── docs/
 │   ├── TZ.md (текущая версия ТЗ, источник правды для всех агентов)
@@ -899,7 +899,7 @@ duzman/
 ### 8.3. Документационные критерии
 
 - `README.md` содержит описание и quickstart
-- `ARCHITECTURE.md` актуален на дату релиза
+- `docs/ARCHITECTURE.md` актуален на дату релиза
 - `DEPLOYMENT.md` позволяет развернуть на новом VPS с нуля
 - `TROUBLESHOOTING.md` покрывает 10+ типичных проблем
 - `CHANGELOG.md` ведётся с дня 1
@@ -1284,7 +1284,7 @@ git checkout -- <file>  # откатить один файл
 
 ### Е.3. Конвенции для агентов
 
-Конвенции проекта (стиль кода, тесты, безопасность, обновление `ARCHITECTURE.md`) хранятся в двух файлах с идентичным содержанием:
+Конвенции проекта (стиль кода, тесты, безопасность, обновление `docs/ARCHITECTURE.md`) хранятся в двух файлах с идентичным содержанием:
 
 - `.claude/skills/duzman-conventions/SKILL.md` — читается Claude Code автоматически
 - `AGENTS.md` в корне репозитория — читается Codex CLI автоматически
@@ -1296,13 +1296,13 @@ git checkout -- <file>  # откатить один файл
 - Git как точка синхронизации: перед сессией `git pull`, после — `git commit` (push выполняет Operator вручную, Codex запрещён push)
 - Не запускать двух агентов одновременно на одном файле или модуле
 - Если параллельная работа нужна — явное разделение зон. Например: Claude Code = коллекторы, Codex = API. Не наоборот
-- `ARCHITECTURE.md` обновляется любым агентом в конце задачи. Перед началом работы агент читает `ARCHITECTURE.md`
+- `docs/ARCHITECTURE.md` обновляется любым агентом в конце задачи. Перед началом работы агент читает `docs/ARCHITECTURE.md`
 
 ### Е.5. Протокол передачи между сессиями
 
 В конце каждой сессии агент:
 
-- Обновляет `ARCHITECTURE.md` (что изменилось в архитектуре)
+- Обновляет `docs/ARCHITECTURE.md` (что изменилось в архитектуре)
 - Делает `git commit` с осмысленным message (что сделано, зачем)
 - Если изменения требуют обновления конвенций — обновляет ОБА файла (`SKILL.md` и `AGENTS.md`)
 
@@ -1310,7 +1310,7 @@ git checkout -- <file>  # откатить один файл
 
 - `git pull`
 - Читает `docs/TZ.md` (ТЗ)
-- Читает `ARCHITECTURE.md` (текущее состояние)
+- Читает `docs/ARCHITECTURE.md` (текущее состояние)
 - Читает свой файл конвенций (`SKILL.md` или `AGENTS.md`)
 - Читает спецификацию текущей задачи (формат — Приложение Г)
 
@@ -1333,7 +1333,7 @@ git checkout -- <file>  # откатить один файл
 
 Если Claude Code и Codex дают разные рекомендации по одной задаче — решение принимает Operator после консультации с Claude (web-чат).
 
-Если ChatGPT и Claude дают разные рекомендации — Operator выбирает на основе аргументации. Финальное решение фиксируется в `ARCHITECTURE.md` или в ТЗ (если архитектурное).
+Если ChatGPT и Claude дают разные рекомендации — Operator выбирает на основе аргументации. Финальное решение фиксируется в `docs/ARCHITECTURE.md` или в ТЗ (если архитектурное).
 
 ---
 
