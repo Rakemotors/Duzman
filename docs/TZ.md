@@ -1434,7 +1434,7 @@ git checkout -- <file>  # откатить один файл
 
 ## Приложение Е. Процесс работы нескольких AI-агентов
 
-Новое в v1.3. Формализует роли и взаимодействие между Claude, Claude Code, Codex CLI и ChatGPT.
+Формализует роли и взаимодействие между Claude, Claude Code, Codex CLI и ChatGPT.
 
 ### Е.1. Роли
 
