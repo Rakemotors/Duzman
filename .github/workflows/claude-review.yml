@@ -1,0 +1,121 @@
+name: Claude Review
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  claude-review:
+    name: Claude Review
+    runs-on: ubuntu-latest
+    env:
+      REVIEW_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CLAUDE_MODEL: claude-sonnet-4-6
+
+    steps:
+      - name: Check optional secret
+        id: secret
+        run: |
+          if [ -z "$REVIEW_API_KEY" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Optional Claude review secret is not configured; skipping Claude review."
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.secret.outputs.enabled == 'true' && github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude review
+        if: steps.secret.outputs.enabled == 'true' && github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          git diff "$BASE_SHA" "$HEAD_SHA" > /tmp/pr.diff
+
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          with open("docs/REVIEW_PROTOCOL.md", encoding="utf-8") as protocol_file:
+              protocol = protocol_file.read()
+
+          with open("/tmp/pr.diff", encoding="utf-8") as diff_file:
+              diff = diff_file.read()
+
+          prompt = f"""Review this pull request using the protocol below.
+
+          Return exactly one verdict from:
+          APPROVE, REQUEST_CHANGES, REJECT_SCOPE_VIOLATION, NEEDS_TZ_UPDATE.
+
+          Then provide concise reasoning and required action.
+
+          Review protocol:
+          {protocol}
+
+          Pull request diff:
+          {diff[:120000]}
+          """
+
+          anthropic_request = urllib.request.Request(
+              "https://api.anthropic.com/v1/messages",
+              data=json.dumps(
+                  {
+                      "model": os.environ["CLAUDE_MODEL"],
+                      "max_tokens": 1200,
+                      "messages": [{"role": "user", "content": prompt}],
+                  }
+              ).encode("utf-8"),
+              headers={
+                  "anthropic-version": "2023-06-01",
+                  "content-type": "application/json",
+                  "x-api-key": os.environ["REVIEW_API_KEY"],
+              },
+              method="POST",
+          )
+
+          with urllib.request.urlopen(anthropic_request, timeout=60) as response:
+              payload = json.loads(response.read().decode("utf-8"))
+
+          body = "\n".join(
+              block.get("text", "")
+              for block in payload.get("content", [])
+              if block.get("type") == "text"
+          ).strip()
+
+          if not body:
+              body = "Verdict: REQUEST_CHANGES\n\nClaude review returned an empty response."
+
+          comment_request = urllib.request.Request(
+              (
+                  "https://api.github.com/repos/"
+                  f"{os.environ['REPOSITORY']}/issues/{os.environ['PR_NUMBER']}/comments"
+              ),
+              data=json.dumps({"body": body}).encode("utf-8"),
+              headers={
+                  "authorization": f"Bearer {os.environ['GH_TOKEN']}",
+                  "accept": "application/vnd.github+json",
+                  "x-github-api-version": "2022-11-28",
+              },
+              method="POST",
+          )
+
+          with urllib.request.urlopen(comment_request, timeout=30) as response:
+              response.read()
+          PY
