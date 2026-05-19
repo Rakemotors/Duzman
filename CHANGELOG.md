@@ -1,4 +1,5 @@
 # Changelog
+[2026-05-19] [docs] PR 1.7: TZ v1.6 → v1.7, GitHub-based agent workflow (sections 0.4, 0.5, appendices Г, Е, Ж)
 [2026-05-18] [docs] PR 1.6: move ARCHITECTURE.md to docs/ARCHITECTURE.md and update references
 
 [2026-05-18] [build] PR 1.5: pin ruff/mypy dev deps and config
