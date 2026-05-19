@@ -1,0 +1,73 @@
+name: "Agent task"
+description: "Структурированная задача для агента по TZ v1.7"
+title: "[agent-task]: "
+labels: ["agent-task"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: "Цель"
+      description: "Что должно работать в конце задачи."
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: "Контекст"
+      description: "1-2 предложения о модуле, процессе и роли изменения."
+    validations:
+      required: true
+
+  - type: input
+    id: spec_zone
+    attributes:
+      label: "Зона спецификации"
+      description: "Пути и модули, которые агент может создавать или изменять."
+      placeholder: ".github/**, docs/REVIEW_PROTOCOL.md"
+    validations:
+      required: true
+
+  - type: textarea
+    id: inputs
+    attributes:
+      label: "Входы"
+      description: "Данные, конфиги, окружение, связанные документы и ограничения контекста."
+    validations:
+      required: true
+
+  - type: textarea
+    id: outputs_definition_of_done
+    attributes:
+      label: "Выходы / Definition of done"
+      description: "Файлы, функции, записи, критерии готовности и наблюдаемые результаты."
+    validations:
+      required: true
+
+  - type: textarea
+    id: constraints
+    attributes:
+      label: "Ограничения"
+      description: "Forbidden actions, границы задачи, запреты на файлы и внешние действия."
+    validations:
+      required: true
+
+  - type: textarea
+    id: checks
+    attributes:
+      label: "Проверки"
+      description: "pytest, grep, ruff, mypy и другие команды, которые должны быть прогнаны."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: routing
+    attributes:
+      label: "Routing"
+      description: "Кому назначается задача."
+      options:
+        - codex-cli
+        - claude-code
+        - claude-web-architect
+    validations:
+      required: true
