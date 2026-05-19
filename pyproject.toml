@@ -14,6 +14,14 @@ dependencies = [
     "pandas-ta",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
@@ -22,3 +30,17 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 pythonpath = ["src"]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "ASYNC"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "src"
+namespace_packages = true
+explicit_package_bases = true
