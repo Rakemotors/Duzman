@@ -8,7 +8,7 @@
 
 - Перед любой задачей: прочитать `docs/TZ.md` целиком, либо релевантную секцию
 - Отклонения от ТЗ не допускаются. Если обнаружено что ТЗ требует доработки — остановиться, описать проблему, ждать решения Operator
-- ТЗ обновляется только Operator-ом через web-чат с Claude. Не редактировать `docs/TZ.md` напрямую
+- Изменения ТЗ вносятся через PR по change-control процессу из `docs/TZ.md` раздела 0.4
 
 ## 2. Архитектурные правила
 
@@ -83,8 +83,9 @@ messages, docs/ARCHITECTURE.md, CHANGELOG.md, README.md).
 ## 5. Безопасность
 
 ### Что запрещено всегда
-- `sudo`, `apt`, `systemctl`, `chmod`, `chown`, `ufw`, `fail2ban-client`
-- `git push` (push выполняет только Operator вручную)
+- `sudo`, `apt`, `systemctl`, `ufw`, `fail2ban-client`
+- `chmod`, `chown` без явного одобрения Operator
+- `git push` в main или protected branches напрямую
 - `git remote` без отдельной задачи
 - Чтение `.env`, `~/.ssh/id_*`, `~/.bashrc`, `~/.profile`
 - `psql`, `createdb`, `dropdb`, `alembic upgrade` без отдельной задачи
@@ -106,6 +107,9 @@ messages, docs/ARCHITECTURE.md, CHANGELOG.md, README.md).
 - Обновляется в конце каждой задачи. Это обязательное правило, не опциональное
 - Содержит: текущее состояние модулей, какие компоненты работают, какие в процессе, какие ещё не начаты
 - Краткие записи, не дублирующие ТЗ
+- Спецификации задач принимаются в формате Приложения Г `docs/TZ.md` (8 полей, включая Зону спецификации)
+- GitHub Issue — контейнер одобренной задачи. PR — контейнер результата и ревью. См. `docs/TZ.md` разделы 0.5 и Приложение Е
+- Forbidden actions — см. `docs/TZ.md` Приложение Ж
 
 ### CHANGELOG.md
 - Краткая запись после каждого коммита: что изменено, для какой задачи
@@ -120,7 +124,7 @@ messages, docs/ARCHITECTURE.md, CHANGELOG.md, README.md).
 
 ### Каждая сессия
 - Начало: `git pull`
-- Конец: `git commit` с осмысленным сообщением. Push выполняет Operator вручную
+- Конец: `git commit` с осмысленным сообщением. Push в feature branch вида `pr-*` исполнителем разрешён при одобренном Issue. Push в main и protected branches запрещён. Merge через PR.
 
 ### Размер коммитов
 - Один коммит = одна логическая задача
@@ -145,7 +149,7 @@ messages, docs/ARCHITECTURE.md, CHANGELOG.md, README.md).
 - Задача выходит за рамки ТЗ
 - Зацикливание (2-3 итерации без прогресса)
 - Подозрение на конфликт с другим агентом (свежий неожиданный diff в `git status`)
-- Запрос требует sudo, push, доступа к `/opt/duzman` или секретам
+- Запрос требует sudo, push в main/protected branch, доступа к `/opt/duzman` или секретам
 
 ### Обновление этого файла
 - Если в процессе работы обнаружено что конвенция требует уточнения или изменения — внести правку в `AGENTS.md` и одновременно в `.claude/skills/duzman-conventions/SKILL.md`
