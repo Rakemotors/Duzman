@@ -32,6 +32,9 @@ def _migration_schema() -> tuple[
         importlib.import_module(
             "duzman.db.alembic.versions.8f3a2c1b9d6e_add_alert_explanations"
         ),
+        importlib.import_module(
+            "duzman.db.alembic.versions.9b7c6d5e4f3a_add_telegram_message_id"
+        ),
     ]
     tables: dict[str, list[sa.Column]] = {}
     indexes: set[tuple[str, str, tuple[str, ...]]] = set()
