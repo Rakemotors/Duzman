@@ -80,6 +80,7 @@ src-layout, editable install через .venv/bin/python -m pip install -e .
 - The layer is feature-flagged by `AI_EXPLANATIONS_ENABLED`; missing `ANTHROPIC_API_KEY`, API failures, cost caps, or missing base message ids do not block normal AlertGate or Telegram delivery.
 - Settings reject `claude-opus-*` model names for the Day 8 MVP, keeping the explanation layer on Sonnet-class models.
 - Prompt context is normalized and bounded, excludes raw payloads and credentials, and the Anthropic key is read only from Settings.
+- Runtime wiring: `src/duzman/ai/app.py` exposes `build_components_from_settings()` which assembles async engine, session factory, AnthropicClient, Telegram sender, ExplanationService, and ExplanationWorker. Worker is launched via `src/duzman/runtime/run_ai_explanation_worker.py` supporting both `run_forever` (daemon) and `--run-once` modes. Async DB URL is derived from `settings.database_url` at startup (`postgresql://` → `postgresql+asyncpg://`); the `.env` `DATABASE_URL` stays in sync form for existing sync code.
 - Alembic migration `8f3a2c1b9d6e` creates `alert_explanations`; migration `9b7c6d5e4f3a` adds `alert_deliveries.telegram_message_id`.
 
 ### Day 6 Implemented Baseline

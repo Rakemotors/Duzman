@@ -332,3 +332,37 @@ Integration:
 11. README / DEPLOYMENT обновления — отдельным мини-PR в конце дня.
 
 Каждый шаг — отдельный коммит, тесты зелёные на каждом шаге.
+
+## Day 8 runtime wiring / composition root
+
+AI explanations subsystem требует composition root и runtime entrypoint.
+
+### Composition root
+
+src/duzman/ai/app.py:
+- build_components_from_settings(settings) -> AiWorkerComponents
+- возвращает async_engine, session_factory, explanation_service, worker, telegram_sender
+- async URL строится автоматически из settings.database_url:
+  postgresql:// → postgresql+asyncpg://
+  postgres:// → postgresql+asyncpg://
+  postgresql+asyncpg:// → unchanged
+
+### Dependency
+
+asyncpg>=0.29,<1.0 как async SQLAlchemy driver. psycopg2-binary остаётся для sync DB.
+
+### Runtime entrypoint
+
+src/duzman/runtime/run_ai_explanation_worker.py:
+- python -m duzman.runtime.run_ai_explanation_worker (daemon)
+- python -m duzman.runtime.run_ai_explanation_worker --run-once (one tick)
+- graceful shutdown на SIGTERM/SIGINT
+- AI_EXPLANATIONS_ENABLED=false → exit 0
+- ANTHROPIC_API_KEY missing → exit 2
+- other errors → exit 1
+
+### Out of scope в PR 3ab
+
+- systemd unit / автозапуск
+- deploy в /opt/duzman
+- smoke verification scripts (отдельный PR 3c)
