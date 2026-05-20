@@ -36,6 +36,36 @@ Runtime database access is supplied through `DATABASE_URL`. Use placeholder-only
 
 For local database preparation, follow the operator-controlled checklist in `docs/LOCAL_DEV_SETUP.md`. It documents placeholder-only `DATABASE_URL` usage, keeps secrets out of `.env` and shell profiles, and treats live migrations as a separately approved step.
 
+## Telegram AI explanations
+
+Day 8 adds an optional AI explanation layer for Telegram alerts. When enabled,
+the base AlertGate Telegram message is sent first, then a managed background
+worker processes `alert_explanations` rows and posts a second Telegram message
+as a reply to the base alert.
+
+The feature is off by default:
+
+```bash
+AI_EXPLANATIONS_ENABLED=false
+```
+
+To enable it, the operator provides `ANTHROPIC_API_KEY` through the runtime
+environment and sets `AI_EXPLANATIONS_ENABLED=true`. The key is read only
+through Settings, is never persisted, and is not logged. Opus-class model names
+are rejected by settings validation for this MVP.
+
+Relevant operator-tuned limits are documented in `.env.example`:
+
+- `AI_EXPLANATION_MAX_PER_HOUR`
+- `AI_EXPLANATION_MAX_PER_DAY`
+- `AI_EXPLANATION_TIMEOUT_SECONDS`
+- `AI_EXPLANATION_CACHE_WINDOW_MINUTES`
+- `AI_EXPLANATION_WORKER_POLL_SECONDS`
+
+AI explanations are non-blocking. If the feature is disabled, the key is
+missing, Anthropic fails, the cost cap is reached, or a base Telegram message id
+is unavailable, normal Telegram alert delivery continues.
+
 ## Read-only API
 
 The FastAPI app factory `duzman.api.create_app()` registers read-only market data routes:
