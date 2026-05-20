@@ -78,6 +78,7 @@ src-layout, editable install через .venv/bin/python -m pip install -e .
 - `alert_explanations` stores one idempotent explanation task per `pattern_trigger_id`, with terminal statuses for completed, reused cache, cost-cap skip, disabled skip, missing base message id, failed, and failed stale.
 - Telegram delivery remains the source of ordering: the base alert is sent first, its `telegram_message_id` is stored in `alert_deliveries`, and explanations are sent later as Telegram replies.
 - The layer is feature-flagged by `AI_EXPLANATIONS_ENABLED`; missing `ANTHROPIC_API_KEY`, API failures, cost caps, or missing base message ids do not block normal AlertGate or Telegram delivery.
+- Settings reject `claude-opus-*` model names for the Day 8 MVP, keeping the explanation layer on Sonnet-class models.
 - Prompt context is normalized and bounded, excludes raw payloads and credentials, and the Anthropic key is read only from Settings.
 - Alembic migration `8f3a2c1b9d6e` creates `alert_explanations`; migration `9b7c6d5e4f3a` adds `alert_deliveries.telegram_message_id`.
 
