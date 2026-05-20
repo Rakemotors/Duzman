@@ -18,3 +18,19 @@ def test_settings_module_imports_without_repo_env(monkeypatch, tmp_path):
     module = importlib.import_module("duzman.settings")
 
     assert module.settings.database_url == ""
+    assert module.settings.ai_explanations_enabled is False
+    assert module.settings.ai_explanation_model == "claude-sonnet-4-6"
+
+
+def test_settings_rejects_opus_model(monkeypatch, tmp_path):
+    """Day-8 AI explanations must not allow Opus-class models."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_EXPLANATION_MODEL", "claude-opus-4-1")
+    sys.modules.pop("duzman.settings", None)
+
+    try:
+        importlib.import_module("duzman.settings")
+    except ValueError as exc:
+        assert "claude-opus models are forbidden" in str(exc)
+    else:  # pragma: no cover - defensive assertion path.
+        raise AssertionError("opus model validation did not fail")
