@@ -565,6 +565,13 @@ ETF flows собираются раз в день в 02:17 UTC (это 21:17 NY 
 
 Алерт на русском, фактологический, с цифрами и кратким AI-объяснением. Структура: эмодзи severity, название шаблона, актив, дата UTC, секция «Что произошло» со списком условий и значений, секция «Почему это интересно» с AI-объяснением, секция «Контекст» с историческими данными, ссылка «Открыть дашборд».
 
+На MVP дня 7 Telegram-бот работает через long polling (`getUpdates`) и
+отправляет plain-text сообщения без webhook. Если `TELEGRAM_BOT_TOKEN`,
+`TELEGRAM_CHAT_ID` не заданы или `TELEGRAM_ENABLED=false`, delivery
+безопасно отключается; токен и chat id не пишутся в БД. Состояние доставки
+фиксируется в `alert_deliveries`, глобальные `mute` / `snooze` — в
+`telegram_channel_state`.
+
 ### 4.5. AI-объяснения
 
 Генерируется через Anthropic API (Claude Sonnet 4.6) для каждого срабатывания. Единственное место использования AI в этапе А.
@@ -622,7 +629,7 @@ Hard cap — защита от багов (см. раздел 0.2):
 Источник правды для счётчиков:
 
 - На дне 6 (Telegram-отправка ещё не реализована) AlertGate сохраняет своё решение в поле `pattern_triggers.conditions_snapshot.gate_decision` (одно из `ALLOW` / `SUPPRESS_COOLDOWN` / `SUPPRESS_SOFT_CAP` / `SUPPRESS_HARD_CAP_HOUR` / `SUPPRESS_HARD_CAP_DAY`). Счётчики ALLOW рассчитываются как `COUNT(*) FROM pattern_triggers WHERE conditions_snapshot->>'gate_decision' = 'ALLOW' AND ts >= window_start`
-- На дне 7 после реализации Telegram-отправки источником правды для счётчиков становится таблица `alerts_sent`. Поле `gate_decision` в `conditions_snapshot` остаётся как audit trail для всех Suppress-решений
+- На дне 7 после реализации Telegram-отправки источником правды для доставки становится таблица `alert_deliveries`. Поле `gate_decision` в `conditions_snapshot` остаётся как audit trail для всех Suppress-решений
 
 ### 4.7. Daily Digest
 
@@ -970,18 +977,20 @@ duzman/
 - Pattern engine, evaluation
 - Cooldown logic с дефолтом 2 часа (реализуется в Pydantic-модели `PatternDefinition` на этапе загрузки конфигурации; AlertGate работает с заполненным `cooldown_hours` и собственного fallback не имеет)
 - AlertGate: cooldown -> daily hard cap -> hourly hard cap -> soft cap (порядок и определения см. раздел 4.6)
-- Записи в `pattern_triggers` создаются для каждого сработавшего шаблона независимо от решения AlertGate; поле `alert_sent` остаётся FALSE на дне 6 и обновляется на TRUE на дне 7 после успешной отправки в Telegram
-- На дне 6 физическая отправка в Telegram НЕ реализуется (это день 7). AlertGate возвращает `GateDecision` (одно из `ALLOW`, `SUPPRESS_COOLDOWN`, `SUPPRESS_SOFT_CAP`, `SUPPRESS_HARD_CAP_HOUR`, `SUPPRESS_HARD_CAP_DAY`) и сохраняет его в `pattern_triggers.conditions_snapshot.gate_decision`. Это временный источник правды для счётчиков на дне 6; на дне 7 счётчики переходят на `alerts_sent`
+- Записи в `pattern_triggers` создаются для каждого сработавшего шаблона независимо от решения AlertGate; успешная Telegram-доставка фиксируется отдельной строкой `alert_deliveries`
+- На дне 6 физическая отправка в Telegram НЕ реализуется. AlertGate возвращает `GateDecision` (одно из `ALLOW`, `SUPPRESS_COOLDOWN`, `SUPPRESS_SOFT_CAP`, `SUPPRESS_HARD_CAP_HOUR`, `SUPPRESS_HARD_CAP_DAY`) и сохраняет его в `pattern_triggers.conditions_snapshot.gate_decision`; на дне 7 delivery state переходит в `alert_deliveries`
 - Тестирование 10 шаблонов на исторических данных (фикстуры с предзаписанными значениями метрик)
 
 ### 7.8. День 7 — Telegram и AI
 
-- Telegram-бот через @BotFather
-- TelegramSender, форматировщик алертов на русском
-- AI-объяснитель Claude Sonnet 4.6
-- Создание Anthropic API ключа для Duzman, Bitwarden, `.env`
-- Post-processing фильтр запрещённых фраз
-- Hard cap $5/мес на Anthropic API
+- Telegram-бот через @BotFather, long polling (`getUpdates`), без webhook
+- Telegram worker запускается явно как managed async background task и безопасно отключается при отсутствии `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`
+- TelegramSender и formatter доставляют только AlertGate `ALLOW` alerts из `pattern_triggers`; AlertGate не вызывает Telegram напрямую
+- Startup digest отправляет bounded список недоставленных alerts за `TELEGRAM_STARTUP_LOOKBACK_HOURS`
+- `alert_deliveries` хранит per-alert delivery state (`sent`, `failed`, `acked`, `snoozed`); `telegram_channel_state` хранит global enabled/muted/snooze
+- Команды MVP: `/start`, `/help`, `/status`, `/alerts`, `/mute`, `/unmute`, `/snooze`
+- Inline buttons, multi-chat, webhook и per-alert snooze отложены
+- AI-объяснитель Claude Sonnet 4.6 и Anthropic API — день 8, не часть Telegram MVP
 
 ### 7.9. День 8 — Дашборд и REST API
 
@@ -1316,8 +1325,8 @@ CREATE TABLE pattern_triggers (
     -- conditions_snapshot хранит снапшот значений метрик на момент срабатывания
     -- шаблона. На дне 6 (v1.5+) также содержит поле gate_decision: одно из ALLOW,
     -- SUPPRESS_COOLDOWN, SUPPRESS_SOFT_CAP, SUPPRESS_HARD_CAP_HOUR, SUPPRESS_HARD_CAP_DAY.
-    -- Используется AlertGate как временный источник правды для счётчиков
-    -- soft/hard cap до реализации alerts_sent на дне 7
+    -- Используется AlertGate как audit trail для решений ALLOW/SUPPRESS;
+    -- delivery state Telegram хранится отдельно в alert_deliveries
     ai_explanation TEXT,
     alert_sent BOOLEAN DEFAULT FALSE,
     user_feedback VARCHAR(20),
@@ -1334,6 +1343,34 @@ CREATE TABLE alerts_sent (
     dedup_key VARCHAR(100)
 );
 CREATE INDEX idx_alerts_dedup ON alerts_sent(dedup_key, sent_at DESC);
+
+CREATE TABLE alert_deliveries (
+    id BIGSERIAL PRIMARY KEY,
+    alert_id BIGINT NOT NULL REFERENCES pattern_triggers(id) ON DELETE CASCADE,
+    channel VARCHAR(20) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    sent_at TIMESTAMPTZ,
+    ack_at TIMESTAMPTZ,
+    snooze_until TIMESTAMPTZ,
+    error_message TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_alert_deliveries_alert_channel UNIQUE (alert_id, channel)
+);
+CREATE INDEX ix_alert_deliveries_alert_id_channel
+    ON alert_deliveries(alert_id, channel);
+CREATE INDEX ix_alert_deliveries_status_channel
+    ON alert_deliveries(status, channel);
+CREATE INDEX ix_alert_deliveries_sent_at
+    ON alert_deliveries(sent_at DESC);
+
+CREATE TABLE telegram_channel_state (
+    id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    muted BOOLEAN NOT NULL DEFAULT FALSE,
+    snooze_until TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 CREATE TABLE api_requests (
     id BIGSERIAL PRIMARY KEY,

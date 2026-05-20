@@ -12,6 +12,7 @@ dependencies = [
     "beautifulsoup4",
     "lxml",
     "pandas-ta==0.4.67b0",
+    "python-telegram-bot==21.11.1",
 ]
 
 [project.optional-dependencies]
