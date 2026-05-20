@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from duzman.db.models import AlertDelivery, PatternTrigger
+from duzman.db.models import AlertDelivery, AlertExplanation, PatternTrigger
 from duzman.telegram.sender import TelegramAlertSender
 
 
@@ -104,6 +104,31 @@ async def test_send_alert_retries_then_records_failure(session: AsyncSession) ->
     assert delivery is not None
     assert delivery.status == "failed"
     assert "temporary telegram failure" in (delivery.error_message or "")
+
+
+@pytest.mark.asyncio
+async def test_send_alert_creates_pending_explanation_when_enabled(
+    session: AsyncSession,
+) -> None:
+    """Successful sends should enqueue one day-8 explanation task when enabled."""
+    alert = await _insert_alert(session)
+    client = FakeTelegramClient()
+    sender = TelegramAlertSender(
+        client,
+        "42",
+        retry_delays=(0.0,),
+        sleep=_sleep,
+        ai_explanations_enabled=True,
+        anthropic_api_key_configured=True,
+    )
+
+    assert await sender.send_alert(session, alert) == "sent"
+    assert await sender.send_alert(session, alert) == "sent"
+
+    explanations = list(await session.scalars(select(AlertExplanation)))
+    assert len(explanations) == 1
+    assert explanations[0].status == "pending"
+    assert explanations[0].alert_delivery_id is not None
 
 
 @pytest.mark.asyncio
@@ -216,6 +241,28 @@ async def _create_tables(connection: Any) -> None:
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
             UNIQUE(alert_id, channel)
+        )
+        """
+    )
+    await connection.exec_driver_sql(
+        """
+        CREATE TABLE alert_explanations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            pattern_trigger_id INTEGER NOT NULL,
+            alert_delivery_id INTEGER,
+            status VARCHAR(32) NOT NULL,
+            model VARCHAR(64),
+            cache_key VARCHAR(64) NOT NULL,
+            prompt_hash VARCHAR(64) NOT NULL,
+            prompt_context_json JSON,
+            prompt_tokens INTEGER,
+            completion_tokens INTEGER,
+            total_tokens INTEGER,
+            text TEXT,
+            error_message TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+            started_at DATETIME,
+            completed_at DATETIME
         )
         """
     )
