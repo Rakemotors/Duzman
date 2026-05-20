@@ -90,6 +90,16 @@ decision = "forbidden"
 justification = "Codex must not apply live migrations unless a separate migration task is approved."
 
 [[rules.prefix_rules]]
+pattern = [{ token = "alembic" }, { token = "downgrade" }]
+decision = "forbidden"
+justification = "Codex must not run downgrade migrations on shared dev/prod DB. Operator runs downgrades manually on isolated DB."
+
+[[rules.prefix_rules]]
+pattern = [{ token = ".venv/bin/alembic" }, { token = "downgrade" }]
+decision = "forbidden"
+justification = "Codex must not run downgrade migrations on shared dev/prod DB. Operator runs downgrades manually on isolated DB."
+
+[[rules.prefix_rules]]
 pattern = [{ token = "rm" }, { token = "-rf" }]
 decision = "prompt"
 justification = "Recursive deletion requires explicit human review."
