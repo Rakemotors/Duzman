@@ -3,8 +3,8 @@ from decimal import Decimal
 from typing import Optional
 
 from sqlalchemy import (
-    BigInteger, Boolean, Date, DateTime, Index, Integer,
-    JSON, Numeric, String, Text, ForeignKey, func,
+    BigInteger, Boolean, CheckConstraint, Date, DateTime, ForeignKey, Index,
+    Integer, JSON, Numeric, SmallInteger, String, Text, UniqueConstraint, func,
 )
 from sqlalchemy.dialects.postgresql import INET, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -193,6 +193,54 @@ class AlertSent(Base):
     delivery_status: Mapped[str] = mapped_column(String(20), nullable=False)
     delivery_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     dedup_key: Mapped[str] = mapped_column(String(100), nullable=False)
+
+
+class AlertDelivery(Base):
+    __tablename__ = "alert_deliveries"
+    __table_args__ = (
+        UniqueConstraint("alert_id", "channel", name="uq_alert_deliveries_alert_channel"),
+        Index("ix_alert_deliveries_alert_id_channel", "alert_id", "channel"),
+        Index("ix_alert_deliveries_status_channel", "status", "channel"),
+        Index("ix_alert_deliveries_sent_at", "sent_at"),
+    )
+
+    id: Mapped[int] = mapped_column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        primary_key=True,
+        autoincrement=True,
+    )
+    alert_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("pattern_triggers.id", ondelete="CASCADE"), nullable=False
+    )
+    channel: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    ack_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    snooze_until: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class TelegramChannelState(Base):
+    __tablename__ = "telegram_channel_state"
+    __table_args__ = (CheckConstraint("id = 1", name="ck_telegram_channel_state_singleton"),)
+
+    id: Mapped[int] = mapped_column(SmallInteger, primary_key=True, default=1)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    muted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    snooze_until: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
 
 class ApiRequest(Base):
