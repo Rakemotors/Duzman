@@ -11,15 +11,15 @@ def test_normalized_market_data_snapshot_is_stable():
 
     snapshot = MarketDataSnapshot(
         source="binance",
-        symbol="BTC",
+        asset="BTC",
         quote_currency="USDT",
-        price=Decimal("67123.45000000"),
-        collected_at=collected_at,
+        price_usd=Decimal("67123.45000000"),
+        ts=collected_at,
         raw_payload={"symbol": "BTCUSDT"},
     )
 
-    assert snapshot.price == Decimal("67123.45000000")
-    assert snapshot.collected_at == collected_at
+    assert snapshot.price_usd == Decimal("67123.45000000")
+    assert snapshot.ts == collected_at
 
 
 def test_market_data_service_normalizes_supported_payloads():
@@ -52,7 +52,6 @@ def test_market_data_service_normalizes_supported_payloads():
     )
 
     assert binance_snapshots[0].source == "binance"
-    assert binance_snapshots[0].price == Decimal("67123.45")
+    assert binance_snapshots[0].price_usd == Decimal("67123.45")
     assert coingecko_snapshots[0].source == "coingecko"
-    assert coingecko_snapshots[0].price == Decimal("67120.01")
-
+    assert coingecko_snapshots[0].price_usd == Decimal("67120.01")

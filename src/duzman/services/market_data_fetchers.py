@@ -37,10 +37,10 @@ class PublicMarketDataFetcher:
             return snapshot
         return MarketDataSnapshot(
             source=snapshot.source,
-            symbol=snapshot.symbol,
+            asset=snapshot.asset,
             quote_currency=snapshot.quote_currency,
-            price=snapshot.price,
-            collected_at=collected_at,
+            price_usd=snapshot.price_usd,
+            ts=collected_at,
             raw_payload=snapshot.raw_payload,
             volume_24h_quote=snapshot.volume_24h_quote,
             price_change_24h_pct=snapshot.price_change_24h_pct,

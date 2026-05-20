@@ -19,10 +19,10 @@ class PriceSnapshotRepository:
         """Persist one normalized market data snapshot."""
         price_snapshot = PriceSnapshot(
             source=snapshot.source,
-            symbol=snapshot.symbol,
+            asset=snapshot.asset,
             quote_currency=snapshot.quote_currency,
-            price=snapshot.price,
-            collected_at=snapshot.collected_at,
+            price_usd=snapshot.price_usd,
+            ts=snapshot.ts,
             raw_payload=self._safe_raw_payload(snapshot.raw_payload),
             volume_24h_quote=snapshot.volume_24h_quote,
             price_change_24h_pct=snapshot.price_change_24h_pct,
@@ -32,31 +32,31 @@ class PriceSnapshotRepository:
         self.session.refresh(price_snapshot)
         return price_snapshot
 
-    def latest_by_source_symbol(
-        self, source: str, symbol: str, limit: int = 10
+    def latest_by_source_asset(
+        self, source: str, asset: str, limit: int = 10
     ) -> list[PriceSnapshot]:
-        """Return latest snapshots for one source and asset symbol."""
+        """Return latest snapshots for one source and asset."""
         statement: Select[tuple[PriceSnapshot]] = (
             select(PriceSnapshot)
-            .where(PriceSnapshot.source == source, PriceSnapshot.symbol == symbol)
-            .order_by(PriceSnapshot.collected_at.desc())
+            .where(PriceSnapshot.source == source, PriceSnapshot.asset == asset)
+            .order_by(PriceSnapshot.ts.desc())
             .limit(limit)
         )
         return list(self.session.scalars(statement))
 
     def list_latest(
         self,
-        symbol: str | None = None,
+        asset: str | None = None,
         source: str | None = None,
         limit: int = 20,
     ) -> list[PriceSnapshot]:
         """Return latest persisted public price snapshots with bounded filters."""
         statement: Select[tuple[PriceSnapshot]] = select(PriceSnapshot)
-        if symbol is not None:
-            statement = statement.where(PriceSnapshot.symbol == symbol)
+        if asset is not None:
+            statement = statement.where(PriceSnapshot.asset == asset)
         if source is not None:
             statement = statement.where(PriceSnapshot.source == source)
-        statement = statement.order_by(PriceSnapshot.collected_at.desc()).limit(limit)
+        statement = statement.order_by(PriceSnapshot.ts.desc()).limit(limit)
         return list(self.session.scalars(statement))
 
     def _safe_raw_payload(self, raw_payload: Mapping[str, object]) -> dict[str, object]:

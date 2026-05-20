@@ -45,10 +45,10 @@ class CoinGeckoCollector:
 
         return MarketDataSnapshot(
             source=self.source,
-            symbol=self.supported_coin_ids[normalized_coin_id],
+            asset=self.supported_coin_ids[normalized_coin_id],
             quote_currency="USD",
-            price=self._require_decimal(payload, "current_price"),
-            collected_at=observed_at,
+            price_usd=self._require_decimal(payload, "current_price"),
+            ts=observed_at,
             raw_payload=dict(payload),
             volume_24h_quote=self._optional_decimal(payload, "total_volume"),
             price_change_24h_pct=self._optional_decimal(
@@ -94,4 +94,3 @@ class CoinGeckoCollector:
             raise MarketDataPayloadError(
                 f"CoinGecko payload has invalid decimal field: {field_name}"
             ) from exc
-

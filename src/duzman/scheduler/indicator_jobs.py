@@ -233,10 +233,10 @@ async def _premium_discount_records(
 def _spot_price_for_asset(
     asset: str,
     spot_snapshots: Sequence[MarketDataSnapshot],
-) -> Decimal | None:
+    ) -> Decimal | None:
     for snapshot in spot_snapshots:
-        if snapshot.symbol == asset:
-            return snapshot.price
+        if snapshot.asset == asset:
+            return snapshot.price_usd
     return None
 
 

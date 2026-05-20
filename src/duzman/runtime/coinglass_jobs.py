@@ -190,9 +190,9 @@ def _enabled_assets(session: Session) -> list[str]:
 
 def _latest_price(session: Session, asset: str) -> Decimal | None:
     statement = (
-        select(PriceSnapshot.price)
-        .where(PriceSnapshot.symbol == asset)
-        .order_by(PriceSnapshot.collected_at.desc())
+        select(PriceSnapshot.price_usd)
+        .where(PriceSnapshot.asset == asset)
+        .order_by(PriceSnapshot.ts.desc())
         .limit(1)
     )
     return session.scalars(statement).first()

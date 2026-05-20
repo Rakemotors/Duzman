@@ -23,6 +23,9 @@ def _migration_schema() -> tuple[
         importlib.import_module(
             "duzman.db.alembic.versions.a7c9f1d4e8b2_create_liquidation_heatmap"
         ),
+        importlib.import_module(
+            "duzman.db.alembic.versions.c0d2f8e4a9b1_canonicalize_price_snapshots"
+        ),
     ]
     tables: dict[str, list[sa.Column]] = {}
     indexes: set[tuple[str, str, tuple[str, ...]]] = set()

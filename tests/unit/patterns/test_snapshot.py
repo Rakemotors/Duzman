@@ -393,10 +393,10 @@ def _schema_statements() -> list[str]:
         CREATE TABLE price_snapshots (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             source VARCHAR(20) NOT NULL,
-            symbol VARCHAR(10) NOT NULL,
+            asset VARCHAR(10) NOT NULL,
             quote_currency VARCHAR(10) NOT NULL,
-            price NUMERIC(20, 8) NOT NULL,
-            collected_at DATETIME NOT NULL,
+            price_usd NUMERIC(20, 8) NOT NULL,
+            ts DATETIME NOT NULL,
             created_at DATETIME,
             raw_payload JSON,
             volume_24h_quote NUMERIC(20, 2),
@@ -485,10 +485,10 @@ def _price(asset: str, ts: datetime, price: str, change_24h: str) -> PriceSnapsh
     """Build a price snapshot ORM row."""
     return PriceSnapshot(
         source="binance",
-        symbol=asset,
+        asset=asset,
         quote_currency="USD",
-        price=Decimal(price),
-        collected_at=ts,
+        price_usd=Decimal(price),
+        ts=ts,
         created_at=ts,
         raw_payload={},
         volume_24h_quote=Decimal("1"),

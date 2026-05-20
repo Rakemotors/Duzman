@@ -46,10 +46,10 @@ def _api_client_with_seed_data(
         price_repository.create_from_market_data(
             MarketDataSnapshot(
                 source="binance",
-                symbol="BTC",
+                asset="BTC",
                 quote_currency="USDT",
-                price=Decimal("67123.45"),
-                collected_at=snapshot_time,
+                price_usd=Decimal("67123.45"),
+                ts=snapshot_time,
                 raw_payload={"symbol": "BTCUSDT", "lastPrice": "67123.45"},
                 volume_24h_quote=Decimal("123456789.12"),
                 price_change_24h_pct=Decimal("2.345"),
@@ -58,10 +58,10 @@ def _api_client_with_seed_data(
         price_repository.create_from_market_data(
             MarketDataSnapshot(
                 source="coingecko",
-                symbol="ETH",
+                asset="ETH",
                 quote_currency="USD",
-                price=Decimal("3120.01"),
-                collected_at=second_snapshot_time,
+                price_usd=Decimal("3120.01"),
+                ts=second_snapshot_time,
                 raw_payload={"id": "ethereum"},
             )
         )
@@ -132,11 +132,11 @@ def test_latest_price_snapshots_endpoint_returns_read_only_data_shape():
     payload = response.json()
     assert len(payload) == 2
     assert set(payload[0]) == {
-        "symbol",
+        "asset",
         "source",
         "quote_currency",
-        "price",
-        "collected_at",
+        "price_usd",
+        "ts",
         "created_at",
         "volume_24h_quote",
         "price_change_24h_pct",
@@ -150,7 +150,7 @@ def test_latest_price_snapshots_endpoint_filters_and_bounds_limit():
 
     filtered = client.get(
         "/api/market-data/prices/latest",
-        params={"symbol": "BTC", "source": "binance", "limit": 1},
+        params={"asset": "BTC", "source": "binance", "limit": 1},
     )
     too_large = client.get(
         "/api/market-data/prices/latest",
@@ -158,7 +158,7 @@ def test_latest_price_snapshots_endpoint_filters_and_bounds_limit():
     )
 
     assert filtered.status_code == 200
-    assert filtered.json()[0]["symbol"] == "BTC"
+    assert filtered.json()[0]["asset"] == "BTC"
     assert filtered.json()[0]["source"] == "binance"
     assert too_large.status_code == 422
 
@@ -191,7 +191,7 @@ def test_ingestion_status_endpoint_returns_summary():
     assert payload["price_snapshot_count"] == 2
     assert payload["source_health_check_count"] == 2
     assert payload["sources_seen"] == ["binance", "coingecko"]
-    assert payload["symbols_seen"] == ["BTC", "ETH"]
+    assert payload["assets_seen"] == ["BTC", "ETH"]
     assert payload["latest_price_snapshot_at"] is not None
     assert payload["latest_source_health_check_at"] is not None
     assert payload["ingestion_health_summary"]["alert_count"] >= 1

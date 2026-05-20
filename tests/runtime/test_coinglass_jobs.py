@@ -175,9 +175,9 @@ def _sqlite_session(include_prices: bool) -> Session:
 def _price_snapshot(asset: str, price: Decimal) -> PriceSnapshot:
     return PriceSnapshot(
         source="binance",
-        symbol=asset,
+        asset=asset,
         quote_currency="USDT",
-        price=price,
-        collected_at=datetime(2026, 5, 16, 12, 17, tzinfo=timezone.utc),
+        price_usd=price,
+        ts=datetime(2026, 5, 16, 12, 17, tzinfo=timezone.utc),
         raw_payload={"symbol": f"{asset}USDT"},
     )

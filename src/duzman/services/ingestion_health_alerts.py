@@ -24,8 +24,8 @@ class PriceSnapshotHealthRow(Protocol):
     """Read-only shape needed from a persisted public price snapshot."""
 
     source: str
-    symbol: str
-    collected_at: datetime
+    asset: str
+    ts: datetime
 
 
 class SourceHealthCheckHealthRow(Protocol):
@@ -45,7 +45,7 @@ class IngestionHealthAlert:
     title: str
     message: str
     source: str | None = None
-    symbol: str | None = None
+    asset: str | None = None
     observed_at: datetime | None = None
     details: dict[str, object] | None = None
 
@@ -138,8 +138,8 @@ def _price_snapshot_alerts(
             )
         ]
 
-    latest_snapshot = max(price_snapshots, key=lambda row: row.collected_at)
-    age = now - _as_aware_utc(latest_snapshot.collected_at)
+    latest_snapshot = max(price_snapshots, key=lambda row: row.ts)
+    age = now - _as_aware_utc(latest_snapshot.ts)
     if age <= freshness_threshold:
         return []
 
@@ -153,8 +153,8 @@ def _price_snapshot_alerts(
                 "freshness threshold."
             ),
             source=latest_snapshot.source,
-            symbol=latest_snapshot.symbol,
-            observed_at=latest_snapshot.collected_at,
+            asset=latest_snapshot.asset,
+            observed_at=latest_snapshot.ts,
             details=_age_details(age=age, threshold=freshness_threshold),
         )
     ]

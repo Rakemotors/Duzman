@@ -12,11 +12,11 @@ JsonScalar = str | int | float | bool | None
 class PriceSnapshotRead(BaseModel):
     """Read-only representation of a persisted public price snapshot."""
 
-    symbol: str
+    asset: str
     source: str
     quote_currency: str
-    price: Decimal
-    collected_at: datetime
+    price_usd: Decimal
+    ts: datetime
     created_at: datetime
     volume_24h_quote: Decimal | None = None
     price_change_24h_pct: Decimal | None = None
@@ -41,7 +41,7 @@ class IngestionHealthAlertRead(BaseModel):
     title: str
     message: str
     source: str | None = None
-    symbol: str | None = None
+    asset: str | None = None
     observed_at: datetime | None = None
     details: dict[str, JsonScalar] | None = None
 
@@ -65,5 +65,5 @@ class IngestionStatusSummary(BaseModel):
     price_snapshot_count: int
     source_health_check_count: int
     sources_seen: list[str]
-    symbols_seen: list[str]
+    assets_seen: list[str]
     ingestion_health_summary: IngestionHealthSummaryRead

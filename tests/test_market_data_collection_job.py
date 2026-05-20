@@ -41,10 +41,10 @@ class FakePublicMarketDataFetcher:
         asset_symbol = symbol.removesuffix("USDT")
         return MarketDataSnapshot(
             source="binance",
-            symbol=asset_symbol,
+            asset=asset_symbol,
             quote_currency="USDT",
-            price=Decimal("67123.45") if asset_symbol == "BTC" else Decimal("3123.45"),
-            collected_at=collected_at or datetime.now(timezone.utc),
+            price_usd=Decimal("67123.45") if asset_symbol == "BTC" else Decimal("3123.45"),
+            ts=collected_at or datetime.now(timezone.utc),
             raw_payload={"symbol": symbol},
         )
 
@@ -56,10 +56,10 @@ class FakePublicMarketDataFetcher:
         symbol = {"bitcoin": "BTC", "ethereum": "ETH"}[coin_id]
         return MarketDataSnapshot(
             source="coingecko",
-            symbol=symbol,
+            asset=symbol,
             quote_currency="USD",
-            price=Decimal("67120.01") if symbol == "BTC" else Decimal("3120.01"),
-            collected_at=collected_at or datetime.now(timezone.utc),
+            price_usd=Decimal("67120.01") if symbol == "BTC" else Decimal("3120.01"),
+            ts=collected_at or datetime.now(timezone.utc),
             raw_payload={"id": coin_id},
         )
 
