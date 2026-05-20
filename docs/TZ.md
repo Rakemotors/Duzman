@@ -586,6 +586,13 @@ Post-processing фильтр проверяет запрещённые фраз�
 
 Стоимость: примерно $0.003 за алерт. При 2-5 алертах в день — $0.20-0.50 в месяц. Hard cap: $5/мес.
 
+AI explanations реализуются как optional async background worker, запускаемый
+через `python -m duzman.runtime.run_ai_explanation_worker`. Worker не блокирует
+AlertGate и Telegram base delivery, читает pending alert_explanations из БД и
+обращается к Anthropic API только при AI_EXPLANATIONS_ENABLED=true. При
+выключенной фиче или отсутствии ANTHROPIC_API_KEY worker завершает работу
+безопасно. Deployment как systemd-сервис — отдельная будущая задача.
+
 ### 4.6. Антиспам и cooldown
 
 Защита от шума реализована тремя слоями.
