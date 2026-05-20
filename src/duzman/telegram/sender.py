@@ -14,9 +14,11 @@ from typing import Protocol
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from telegram import Bot
 
+from duzman.ai.explanation_service import create_pending_explanation
 from duzman.db.models import AlertDelivery, PatternTrigger
 from duzman.db.repositories.alert_deliveries import AlertDeliveryRepository
 from duzman.db.repositories.telegram_state import TelegramStateRepository
+from duzman.settings import settings
 from duzman.telegram.formatters import format_alert
 
 LOGGER = logging.getLogger(__name__)
@@ -70,6 +72,9 @@ class TelegramAlertSender:
         delivery_repository: AlertDeliveryRepository | None = None,
         state_repository: TelegramStateRepository | None = None,
         session_factory: async_sessionmaker[AsyncSession] | None = None,
+        ai_explanations_enabled: bool | None = None,
+        anthropic_api_key_configured: bool | None = None,
+        explanation_max_input_chars: int | None = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         retry_delays: Sequence[float] = (1.0, 2.0, 4.0),
     ) -> None:
@@ -79,6 +84,21 @@ class TelegramAlertSender:
         self._deliveries = delivery_repository or AlertDeliveryRepository()
         self._state = state_repository or TelegramStateRepository()
         self._session_factory = session_factory
+        self._ai_explanations_enabled = (
+            settings.ai_explanations_enabled
+            if ai_explanations_enabled is None
+            else ai_explanations_enabled
+        )
+        self._anthropic_api_key_configured = (
+            bool(settings.anthropic_api_key)
+            if anthropic_api_key_configured is None
+            else anthropic_api_key_configured
+        )
+        self._explanation_max_input_chars = (
+            settings.ai_explanation_max_input_chars
+            if explanation_max_input_chars is None
+            else explanation_max_input_chars
+        )
         self._sleep = sleep
         self._retry_delays = retry_delays
 
@@ -106,7 +126,7 @@ class TelegramAlertSender:
             try:
                 message_id = await self._client.send_message(chat_id=self._chat_id, text=text)
                 sent_at = datetime.now(UTC)
-                await self._deliveries.create_or_update(
+                delivery = await self._deliveries.create_or_update(
                     session,
                     int(alert.id),
                     "sent",
@@ -114,6 +134,7 @@ class TelegramAlertSender:
                     telegram_message_id=message_id,
                     now=sent_at,
                 )
+                await self._create_pending_explanation_if_enabled(session, alert, delivery)
                 return "sent"
             except Exception as exc:  # pragma: no cover - exact client errors vary.
                 error_message = _safe_error_message(exc)
@@ -159,6 +180,22 @@ class TelegramAlertSender:
                 text=EXPLANATION_PREFIX + text,
                 reply_to_message_id=int(delivery.telegram_message_id),
             )
+
+    async def _create_pending_explanation_if_enabled(
+        self,
+        session: AsyncSession,
+        alert: PatternTrigger,
+        delivery: AlertDelivery,
+    ) -> None:
+        """Create a day-8 explanation task after successful base alert delivery."""
+        if not self._ai_explanations_enabled or not self._anthropic_api_key_configured:
+            return
+        await create_pending_explanation(
+            session,
+            alert,
+            alert_delivery_id=int(delivery.id),
+            max_input_chars=self._explanation_max_input_chars,
+        )
 
 
 def _safe_error_message(exc: Exception) -> str:

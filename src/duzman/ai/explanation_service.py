@@ -11,7 +11,6 @@ from datetime import UTC, datetime
 from typing import Protocol, cast
 
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from duzman.ai.anthropic_client import AnthropicCallError, ExplanationResult
@@ -198,6 +197,14 @@ async def create_pending_explanation(
     max_input_chars: int = 6000,
 ) -> AlertExplanation | None:
     """Create a pending explanation task idempotently for one pattern trigger."""
+    existing = await session.scalar(
+        select(AlertExplanation).where(
+            AlertExplanation.pattern_trigger_id == int(pattern_trigger.id)
+        )
+    )
+    if existing is not None:
+        return None
+
     prompt = build_prompt(pattern_trigger, {}, None, max_input_chars=max_input_chars)
     row = AlertExplanation(
         pattern_trigger_id=int(pattern_trigger.id),
@@ -208,11 +215,7 @@ async def create_pending_explanation(
         prompt_context_json=prompt.context_json,
     )
     session.add(row)
-    try:
-        await session.flush()
-    except IntegrityError:
-        await session.rollback()
-        return None
+    await session.flush()
     return row
 
 
