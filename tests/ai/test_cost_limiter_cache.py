@@ -70,7 +70,9 @@ async def test_check_budget_blocks_hour_cap(session: AsyncSession) -> None:
 @pytest.mark.asyncio
 async def test_check_budget_ignores_reused_cache_and_skipped(session: AsyncSession) -> None:
     """Cache and skipped rows should not consume Anthropic budget."""
-    for index, status in enumerate(("reused_cache", "skipped_cost_cap")):
+    for index, status in enumerate(
+        ("reused_cache", "skipped_cost_cap", "skipped_no_base_message")
+    ):
         session.add(_row(index, status=status, created_at=NOW - timedelta(minutes=10)))
     await session.flush()
 

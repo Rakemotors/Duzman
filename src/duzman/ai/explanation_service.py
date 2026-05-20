@@ -18,7 +18,7 @@ from duzman.ai.anthropic_client import AnthropicCallError, ExplanationResult
 from duzman.ai.cache import lookup_cached_explanation
 from duzman.ai.cost_limiter import BudgetStatus, check_budget
 from duzman.ai.prompt_builder import build_prompt
-from duzman.db.models import AlertExplanation, PatternTrigger
+from duzman.db.models import AlertDelivery, AlertExplanation, PatternTrigger
 from duzman.settings import Settings
 
 
@@ -107,6 +107,15 @@ class ExplanationService:
                 status="skipped_disabled",
                 now=self._now(),
                 error_message="AI explanations disabled or API key missing",
+            )
+            return explanation.status
+
+        if not await _base_delivery_has_message_id(session, explanation):
+            _finish(
+                explanation,
+                status="skipped_no_base_message",
+                now=self._now(),
+                error_message="base telegram message id missing",
             )
             return explanation.status
 
@@ -229,6 +238,17 @@ async def _claim_explanation(
     row.started_at = now
     await session.flush()
     return row
+
+
+async def _base_delivery_has_message_id(
+    session: AsyncSession,
+    explanation: AlertExplanation,
+) -> bool:
+    """Return whether the explanation can reply to a base Telegram message."""
+    if explanation.alert_delivery_id is None:
+        return False
+    delivery = await session.get(AlertDelivery, explanation.alert_delivery_id)
+    return delivery is not None and delivery.telegram_message_id is not None
 
 
 def _apply_result(
