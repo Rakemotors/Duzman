@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from duzman.ai.anthropic_client import AnthropicCallError, ExplanationResult
 from duzman.ai.explanation_service import ExplanationService, ExplanationServiceConfig
-from duzman.db.models import AlertExplanation, PatternTrigger
+from duzman.db.models import AlertDelivery, AlertExplanation, PatternTrigger
 
 NOW = datetime(2026, 5, 20, 12, 0, tzinfo=UTC)
 
@@ -68,7 +68,8 @@ async def test_process_task_completed_path(session: AsyncSession) -> None:
     assert status == "completed"
     assert explanation.text == "ai text"
     assert explanation.total_tokens == 3
-    assert sender.sent == [(10, "ai text")]
+    assert explanation.alert_delivery_id is not None
+    assert sender.sent == [(int(explanation.alert_delivery_id), "ai text")]
 
 
 @pytest.mark.asyncio
@@ -110,7 +111,8 @@ async def test_process_task_reuses_cache(session: AsyncSession) -> None:
     assert status == "reused_cache"
     assert explanation.text == "cached text"
     assert client.calls == 0
-    assert sender.sent == [(10, "cached text")]
+    assert explanation.alert_delivery_id is not None
+    assert sender.sent == [(int(explanation.alert_delivery_id), "cached text")]
 
 
 @pytest.mark.asyncio
@@ -149,7 +151,29 @@ async def test_process_task_skips_cost_cap(session: AsyncSession) -> None:
     assert sender.sent == []
 
 
-async def _seed_pending(session: AsyncSession) -> AlertExplanation:
+@pytest.mark.asyncio
+async def test_process_task_skips_missing_base_message_before_anthropic(
+    session: AsyncSession,
+) -> None:
+    """Missing base message ids should skip before cache, budget, or Anthropic."""
+    explanation = await _seed_pending(session, telegram_message_id=None)
+    client = FakeAnthropicClient()
+    sender = FakeTelegramSender()
+    service = _service(client, sender)
+
+    status = await service.process_task(session, int(explanation.id))
+
+    assert status == "skipped_no_base_message"
+    assert explanation.error_message == "base telegram message id missing"
+    assert client.calls == 0
+    assert sender.sent == []
+
+
+async def _seed_pending(
+    session: AsyncSession,
+    *,
+    telegram_message_id: int | None = 456,
+) -> AlertExplanation:
     """Insert one PatternTrigger and pending explanation row."""
     trigger = PatternTrigger(
         ts=NOW,
@@ -161,9 +185,17 @@ async def _seed_pending(session: AsyncSession) -> AlertExplanation:
     )
     session.add(trigger)
     await session.flush()
+    delivery = AlertDelivery(
+        alert_id=int(trigger.id),
+        channel="telegram",
+        status="sent",
+        telegram_message_id=telegram_message_id,
+    )
+    session.add(delivery)
+    await session.flush()
     explanation = AlertExplanation(
         pattern_trigger_id=int(trigger.id),
-        alert_delivery_id=10,
+        alert_delivery_id=int(delivery.id),
         status="pending",
         cache_key="cache",
         prompt_hash="pending",
@@ -210,6 +242,24 @@ async def _create_tables(connection: Any) -> None:
             alert_sent BOOLEAN,
             user_feedback VARCHAR(20),
             user_feedback_at DATETIME
+        )
+        """
+    )
+    await connection.exec_driver_sql(
+        """
+        CREATE TABLE alert_deliveries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            alert_id INTEGER NOT NULL,
+            channel VARCHAR(20) NOT NULL,
+            status VARCHAR(20) NOT NULL,
+            sent_at DATETIME,
+            telegram_message_id BIGINT,
+            ack_at DATETIME,
+            snooze_until DATETIME,
+            error_message TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+            UNIQUE(alert_id, channel)
         )
         """
     )

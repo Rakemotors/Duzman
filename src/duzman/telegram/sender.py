@@ -6,23 +6,33 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime
 from typing import Protocol
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from telegram import Bot
 
-from duzman.db.models import PatternTrigger
+from duzman.db.models import AlertDelivery, PatternTrigger
 from duzman.db.repositories.alert_deliveries import AlertDeliveryRepository
 from duzman.db.repositories.telegram_state import TelegramStateRepository
 from duzman.telegram.formatters import format_alert
+
+LOGGER = logging.getLogger(__name__)
+EXPLANATION_PREFIX = "🤖 Объяснение:\n\n"
 
 
 class TelegramClient(Protocol):
     """Minimal async Telegram client used by the sender."""
 
-    async def send_message(self, *, chat_id: str, text: str) -> int:
+    async def send_message(
+        self,
+        *,
+        chat_id: str,
+        text: str,
+        reply_to_message_id: int | None = None,
+    ) -> int:
         """Send one text message to a Telegram chat and return message id."""
 
 
@@ -33,9 +43,19 @@ class TelegramBotClient:
         """Create a Bot API client without performing network calls."""
         self._bot = Bot(token=token)
 
-    async def send_message(self, *, chat_id: str, text: str) -> int:
+    async def send_message(
+        self,
+        *,
+        chat_id: str,
+        text: str,
+        reply_to_message_id: int | None = None,
+    ) -> int:
         """Send one text message via Telegram Bot API and return message id."""
-        message = await self._bot.send_message(chat_id=chat_id, text=text)
+        message = await self._bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            reply_to_message_id=reply_to_message_id,
+        )
         return int(message.message_id)
 
 
@@ -49,6 +69,7 @@ class TelegramAlertSender:
         *,
         delivery_repository: AlertDeliveryRepository | None = None,
         state_repository: TelegramStateRepository | None = None,
+        session_factory: async_sessionmaker[AsyncSession] | None = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         retry_delays: Sequence[float] = (1.0, 2.0, 4.0),
     ) -> None:
@@ -57,6 +78,7 @@ class TelegramAlertSender:
         self._chat_id = chat_id
         self._deliveries = delivery_repository or AlertDeliveryRepository()
         self._state = state_repository or TelegramStateRepository()
+        self._session_factory = session_factory
         self._sleep = sleep
         self._retry_delays = retry_delays
 
@@ -111,6 +133,32 @@ class TelegramAlertSender:
     async def send_text(self, text: str) -> None:
         """Send one already formatted Telegram text message."""
         await self._client.send_message(chat_id=self._chat_id, text=text)
+
+    async def send_explanation(self, alert_delivery_id: int, text: str) -> None:
+        """Send an AI explanation as a reply to the base Telegram alert."""
+        if self._session_factory is None:
+            LOGGER.warning("telegram_explanation_sender_missing_session_factory")
+            return
+
+        async with self._session_factory() as session:
+            delivery = await session.get(AlertDelivery, alert_delivery_id)
+            if delivery is None:
+                LOGGER.warning(
+                    "telegram_explanation_delivery_missing",
+                    extra={"alert_delivery_id": alert_delivery_id},
+                )
+                return
+            if delivery.telegram_message_id is None:
+                LOGGER.warning(
+                    "telegram_explanation_base_message_missing",
+                    extra={"alert_delivery_id": alert_delivery_id},
+                )
+                return
+            await self._client.send_message(
+                chat_id=self._chat_id,
+                text=EXPLANATION_PREFIX + text,
+                reply_to_message_id=int(delivery.telegram_message_id),
+            )
 
 
 def _safe_error_message(exc: Exception) -> str:
