@@ -37,12 +37,12 @@ def test_coingecko_valid_market_payload_parses_to_snapshot():
     snapshot = CoinGeckoCollector().parse_market_payload(payload, collected_at)
 
     assert snapshot.source == "coingecko"
-    assert snapshot.symbol == "ETH"
+    assert snapshot.asset == "ETH"
     assert snapshot.quote_currency == "USD"
-    assert snapshot.price == Decimal("3123.45")
+    assert snapshot.price_usd == Decimal("3123.45")
     assert snapshot.volume_24h_quote == Decimal("987654321.12")
     assert snapshot.price_change_24h_pct == Decimal("-1.25")
-    assert snapshot.collected_at == collected_at
+    assert snapshot.ts == collected_at
     assert snapshot.raw_payload == payload
 
 
@@ -58,4 +58,3 @@ def test_coingecko_unsupported_coin_id_is_rejected():
     """Only explicitly supported Stage A public coin IDs are accepted."""
     with pytest.raises(UnsupportedMarketSymbolError, match="not supported"):
         CoinGeckoCollector().build_markets_request(["ripple"])
-

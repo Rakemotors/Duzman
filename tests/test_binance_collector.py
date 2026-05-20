@@ -49,9 +49,9 @@ async def test_fetch_tickers_happy_path_normalizes_snapshot():
 
     assert len(snapshots) == 1
     assert snapshots[0].source == "binance"
-    assert snapshots[0].symbol == "BTC"
+    assert snapshots[0].asset == "BTC"
     assert snapshots[0].quote_currency == "USDT"
-    assert snapshots[0].price == Decimal("67123.45")
+    assert snapshots[0].price_usd == Decimal("67123.45")
     assert snapshots[0].volume_24h_quote == Decimal("123456789.12")
     assert snapshots[0].price_change_24h_pct == Decimal("2.345")
     assert snapshots[0].raw_payload["symbol"] == "BTCUSDT"
@@ -113,7 +113,7 @@ async def test_all_stage_a_symbols_are_supported_for_tickers():
             ["BTC", "ETH", "SOL", "SUI", "TON", "UNI"]
         )
 
-    assert [snapshot.symbol for snapshot in snapshots] == [
+    assert [snapshot.asset for snapshot in snapshots] == [
         "BTC",
         "ETH",
         "SOL",

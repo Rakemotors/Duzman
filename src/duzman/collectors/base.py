@@ -30,11 +30,10 @@ class MarketDataSnapshot:
     """Normalized public market data snapshot used before DB persistence."""
 
     source: str
-    symbol: str
+    asset: str
     quote_currency: str
-    price: Decimal
-    collected_at: datetime
+    price_usd: Decimal
+    ts: datetime
     raw_payload: Mapping[str, Any]
     volume_24h_quote: Decimal | None = None
     price_change_24h_pct: Decimal | None = None
-

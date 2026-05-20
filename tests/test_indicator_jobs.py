@@ -65,10 +65,10 @@ class FakeBinanceCollector:
         return [
             MarketDataSnapshot(
                 source="binance",
-                symbol=symbol,
+                asset=symbol,
                 quote_currency="USDT",
-                price=Decimal("100"),
-                collected_at=datetime(2026, 5, 16, 12, 23, tzinfo=timezone.utc),
+                price_usd=Decimal("100"),
+                ts=datetime(2026, 5, 16, 12, 23, tzinfo=timezone.utc),
                 raw_payload={"symbol": f"{symbol}USDT"},
             )
             for symbol in symbols

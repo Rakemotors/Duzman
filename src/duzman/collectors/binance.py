@@ -143,10 +143,10 @@ class BinanceCollector:
 
         return MarketDataSnapshot(
             source=self.source,
-            symbol=asset_symbol,
+            asset=asset_symbol,
             quote_currency=BINANCE_QUOTE_CURRENCY,
-            price=self._required_decimal(payload, "lastPrice"),
-            collected_at=observed_at,
+            price_usd=self._required_decimal(payload, "lastPrice"),
+            ts=observed_at,
             raw_payload=dict(payload),
             volume_24h_quote=self._optional_decimal(payload, "quoteVolume"),
             price_change_24h_pct=self._optional_decimal(payload, "priceChangePercent"),

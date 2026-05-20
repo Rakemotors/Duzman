@@ -31,10 +31,10 @@ def test_price_snapshot_model_has_required_columns():
     assert {
         "id",
         "source",
-        "symbol",
+        "asset",
         "quote_currency",
-        "price",
-        "collected_at",
+        "price_usd",
+        "ts",
         "created_at",
         "raw_payload",
     } <= columns
@@ -49,10 +49,10 @@ def test_repository_persists_normalized_binance_snapshot_offline():
     saved = repository.create_from_market_data(
         MarketDataSnapshot(
             source="binance",
-            symbol="BTC",
+            asset="BTC",
             quote_currency="USDT",
-            price=Decimal("67123.45"),
-            collected_at=collected_at,
+            price_usd=Decimal("67123.45"),
+            ts=collected_at,
             raw_payload={"symbol": "BTCUSDT"},
             volume_24h_quote=Decimal("123456789.12"),
             price_change_24h_pct=Decimal("2.345"),
@@ -62,8 +62,8 @@ def test_repository_persists_normalized_binance_snapshot_offline():
 
     assert saved.id == 1
     assert saved.source == "binance"
-    assert saved.symbol == "BTC"
-    assert saved.price == Decimal("67123.45000000")
+    assert saved.asset == "BTC"
+    assert saved.price_usd == Decimal("67123.45000000")
     assert saved.raw_payload == {"symbol": "BTCUSDT"}
 
 
@@ -76,10 +76,10 @@ def test_repository_persists_normalized_coingecko_snapshot_offline():
     saved = repository.create_from_market_data(
         MarketDataSnapshot(
             source="coingecko",
-            symbol="ETH",
+            asset="ETH",
             quote_currency="USD",
-            price=Decimal("3123.45"),
-            collected_at=collected_at,
+            price_usd=Decimal("3123.45"),
+            ts=collected_at,
             raw_payload={"id": "ethereum"},
         )
     )
@@ -87,8 +87,8 @@ def test_repository_persists_normalized_coingecko_snapshot_offline():
 
     assert saved.id == 1
     assert saved.source == "coingecko"
-    assert saved.symbol == "ETH"
-    assert saved.price == Decimal("3123.45000000")
+    assert saved.asset == "ETH"
+    assert saved.price_usd == Decimal("3123.45000000")
 
 
 def test_repository_lists_latest_snapshots_by_source_symbol():
@@ -100,18 +100,18 @@ def test_repository_lists_latest_snapshots_by_source_symbol():
         repository.create_from_market_data(
             MarketDataSnapshot(
                 source="binance",
-                symbol="BTC",
+                asset="BTC",
                 quote_currency="USDT",
-                price=Decimal(price),
-                collected_at=datetime(2026, 5, 15, hour, 17, tzinfo=timezone.utc),
+                price_usd=Decimal(price),
+                ts=datetime(2026, 5, 15, hour, 17, tzinfo=timezone.utc),
                 raw_payload={"symbol": "BTCUSDT", "lastPrice": price},
             )
         )
     session.commit()
 
-    latest = repository.latest_by_source_symbol("binance", "BTC")
+    latest = repository.latest_by_source_asset("binance", "BTC")
 
-    assert [snapshot.price for snapshot in latest] == [
+    assert [snapshot.price_usd for snapshot in latest] == [
         Decimal("67123.45000000"),
         Decimal("67000.00000000"),
     ]
@@ -122,7 +122,7 @@ def test_repository_lists_latest_snapshots_with_optional_filters():
     session = _sqlite_session()
     repository = PriceSnapshotRepository(session)
 
-    for source, symbol, price in (
+    for source, asset, price in (
         ("binance", "BTC", "67123.45"),
         ("coingecko", "BTC", "67120.01"),
         ("binance", "ETH", "3123.45"),
@@ -130,16 +130,16 @@ def test_repository_lists_latest_snapshots_with_optional_filters():
         repository.create_from_market_data(
             MarketDataSnapshot(
                 source=source,
-                symbol=symbol,
+                asset=asset,
                 quote_currency="USDT" if source == "binance" else "USD",
-                price=Decimal(price),
-                collected_at=datetime(2026, 5, 15, 12, 17, tzinfo=timezone.utc),
-                raw_payload={"source": source, "symbol": symbol},
+                price_usd=Decimal(price),
+                ts=datetime(2026, 5, 15, 12, 17, tzinfo=timezone.utc),
+                raw_payload={"source": source, "symbol": asset},
             )
         )
     session.commit()
 
-    latest = repository.list_latest(symbol="BTC", limit=1)
+    latest = repository.list_latest(asset="BTC", limit=1)
 
     assert len(latest) == 1
-    assert latest[0].symbol == "BTC"
+    assert latest[0].asset == "BTC"

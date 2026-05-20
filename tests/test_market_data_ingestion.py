@@ -56,7 +56,7 @@ def test_ingestion_service_saves_supplied_static_payloads_offline():
 
     assert result.saved_count == 2
     assert {snapshot.source for snapshot in saved} == {"binance", "coingecko"}
-    assert {snapshot.symbol for snapshot in saved} == {"BTC", "ETH"}
+    assert {snapshot.asset for snapshot in saved} == {"BTC", "ETH"}
 
 
 def test_ingestion_rejects_malformed_payload_without_persisting():

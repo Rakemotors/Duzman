@@ -27,12 +27,12 @@ class PriceSnapshot(Base):
     __tablename__ = "price_snapshots"
     __table_args__ = (
         Index(
-            "ix_price_snapshots_source_symbol_collected_at",
+            "ix_price_snapshots_source_asset_ts",
             "source",
-            "symbol",
-            "collected_at",
+            "asset",
+            "ts",
         ),
-        Index("ix_price_snapshots_collected_at", "collected_at"),
+        Index("ix_price_snapshots_ts", "ts"),
         Index("ix_price_snapshots_source", "source"),
     )
 
@@ -42,10 +42,10 @@ class PriceSnapshot(Base):
         autoincrement=True,
     )
     source: Mapped[str] = mapped_column(String(20), nullable=False)
-    symbol: Mapped[str] = mapped_column(String(10), ForeignKey("assets.symbol"), nullable=False)
+    asset: Mapped[str] = mapped_column(String(10), ForeignKey("assets.symbol"), nullable=False)
     quote_currency: Mapped[str] = mapped_column(String(10), nullable=False)
-    price: Mapped[Decimal] = mapped_column(Numeric(20, 8), nullable=False)
-    collected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    price_usd: Mapped[Decimal] = mapped_column(Numeric(20, 8), nullable=False)
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

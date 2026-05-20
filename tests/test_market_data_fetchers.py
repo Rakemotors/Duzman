@@ -35,8 +35,8 @@ def test_binance_public_fetcher_uses_request_definition_and_normalizes_payload()
     assert observed_requests[0].url.path == "/api/v3/ticker/24hr"
     assert observed_requests[0].url.params["symbol"] == "BTCUSDT"
     assert snapshot.source == "binance"
-    assert snapshot.symbol == "BTC"
-    assert snapshot.price == Decimal("67123.45")
+    assert snapshot.asset == "BTC"
+    assert snapshot.price_usd == Decimal("67123.45")
 
 
 def test_coingecko_public_fetcher_uses_request_definition_and_normalizes_payload():
@@ -69,5 +69,5 @@ def test_coingecko_public_fetcher_uses_request_definition_and_normalizes_payload
     assert observed_requests[0].url.params["ids"] == "ethereum"
     assert observed_requests[0].url.params["vs_currency"] == "usd"
     assert snapshot.source == "coingecko"
-    assert snapshot.symbol == "ETH"
-    assert snapshot.price == Decimal("3123.45")
+    assert snapshot.asset == "ETH"
+    assert snapshot.price_usd == Decimal("3123.45")

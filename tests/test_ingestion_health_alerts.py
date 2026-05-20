@@ -15,8 +15,8 @@ FRESH_THRESHOLD = timedelta(minutes=30)
 @dataclass(frozen=True)
 class _PriceRow:
     source: str
-    symbol: str
-    collected_at: datetime
+    asset: str
+    ts: datetime
 
 
 @dataclass(frozen=True)
@@ -51,7 +51,7 @@ def test_stale_price_snapshot_alert_is_emitted():
 
     stale_alert = _only_alert_of_type(alerts, "stale_price_snapshot")
     assert stale_alert.source == "binance"
-    assert stale_alert.symbol == "BTC"
+    assert stale_alert.asset == "BTC"
     assert stale_alert.details == {"age_minutes": 45, "threshold_minutes": 30}
 
 

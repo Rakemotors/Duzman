@@ -32,7 +32,7 @@ router = APIRouter(prefix="/api/market-data", tags=["market-data"])
 @router.get("/prices/latest", response_model=list[PriceSnapshotRead])
 def list_latest_price_snapshots(
     db: Annotated[Session, Depends(get_api_db)],
-    symbol: Annotated[str | None, Query(max_length=10)] = None,
+    asset: Annotated[str | None, Query(max_length=10)] = None,
     source: Annotated[str | None, Query(max_length=20)] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> list[PriceSnapshotRead]:
@@ -41,7 +41,7 @@ def list_latest_price_snapshots(
     return [
         _price_snapshot_response(snapshot)
         for snapshot in repository.list_latest(
-            symbol=symbol,
+            asset=asset,
             source=source,
             limit=limit,
         )
@@ -66,7 +66,7 @@ def get_ingestion_status_summary(
     db: Annotated[Session, Depends(get_api_db)],
 ) -> IngestionStatusSummary:
     """Return a read-only summary of persisted ingestion state."""
-    latest_price_snapshot_at = db.scalar(select(func.max(PriceSnapshot.collected_at)))
+    latest_price_snapshot_at = db.scalar(select(func.max(PriceSnapshot.ts)))
     latest_source_health_check_at = db.scalar(
         select(func.max(SourceHealthCheck.checked_at))
     )
@@ -79,9 +79,9 @@ def get_ingestion_status_summary(
     price_sources = set(db.scalars(select(PriceSnapshot.source).distinct()))
     health_sources = set(db.scalars(select(SourceHealthCheck.source).distinct()))
     sources_seen = sorted(price_sources | health_sources)
-    symbols_seen = sorted(
-        symbol
-        for symbol in db.scalars(select(PriceSnapshot.symbol).distinct())
+    assets_seen = sorted(
+        asset
+        for asset in db.scalars(select(PriceSnapshot.asset).distinct())
     )
     price_repository = PriceSnapshotRepository(db)
     health_repository = SourceHealthRepository(db)
@@ -100,7 +100,7 @@ def get_ingestion_status_summary(
         price_snapshot_count=price_snapshot_count or 0,
         source_health_check_count=source_health_check_count or 0,
         sources_seen=sources_seen,
-        symbols_seen=symbols_seen,
+        assets_seen=assets_seen,
         ingestion_health_summary=_ingestion_health_summary_response(
             summarize_ingestion_health(
                 alerts=alerts,
@@ -126,11 +126,11 @@ def list_ingestion_health_alerts(
 
 def _price_snapshot_response(snapshot: PriceSnapshot) -> PriceSnapshotRead:
     return PriceSnapshotRead(
-        symbol=snapshot.symbol,
+        asset=snapshot.asset,
         source=snapshot.source,
         quote_currency=snapshot.quote_currency,
-        price=snapshot.price,
-        collected_at=snapshot.collected_at,
+        price_usd=snapshot.price_usd,
+        ts=snapshot.ts,
         created_at=snapshot.created_at,
         volume_24h_quote=snapshot.volume_24h_quote,
         price_change_24h_pct=snapshot.price_change_24h_pct,
@@ -159,7 +159,7 @@ def _ingestion_health_alert_response(
         title=alert.title,
         message=alert.message,
         source=alert.source,
-        symbol=alert.symbol,
+        asset=alert.asset,
         observed_at=alert.observed_at,
         details=alert.details,
     )

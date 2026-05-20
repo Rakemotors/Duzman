@@ -69,13 +69,13 @@ class SnapshotReadRepository:
     ) -> PriceSnapshot | None:
         """Return the latest price snapshot for one asset in an optional window."""
         statement: Select[tuple[PriceSnapshot]] = select(PriceSnapshot).where(
-            PriceSnapshot.symbol == asset
+            PriceSnapshot.asset == asset
         )
         if since is not None:
-            statement = statement.where(PriceSnapshot.collected_at >= since)
+            statement = statement.where(PriceSnapshot.ts >= since)
         if until is not None:
-            statement = statement.where(PriceSnapshot.collected_at <= until)
-        statement = statement.order_by(PriceSnapshot.collected_at.desc()).limit(1)
+            statement = statement.where(PriceSnapshot.ts <= until)
+        statement = statement.order_by(PriceSnapshot.ts.desc()).limit(1)
         return await self.session.scalar(statement)
 
     async def closest_price_snapshot(
@@ -94,7 +94,7 @@ class SnapshotReadRepository:
             return None
         return min(
             rows,
-            key=lambda row: abs((_as_utc(row.collected_at) - target).total_seconds()),
+            key=lambda row: abs((_as_utc(row.ts) - target).total_seconds()),
         )
 
     async def price_snapshots_between(
@@ -107,11 +107,11 @@ class SnapshotReadRepository:
         statement: Select[tuple[PriceSnapshot]] = (
             select(PriceSnapshot)
             .where(
-                PriceSnapshot.symbol == asset,
-                PriceSnapshot.collected_at >= since,
-                PriceSnapshot.collected_at <= until,
+                PriceSnapshot.asset == asset,
+                PriceSnapshot.ts >= since,
+                PriceSnapshot.ts <= until,
             )
-            .order_by(PriceSnapshot.collected_at.asc())
+            .order_by(PriceSnapshot.ts.asc())
         )
         return list((await self.session.scalars(statement)).all())
 

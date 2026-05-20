@@ -306,10 +306,10 @@ async def _compute_price_vs_btc_change_7d_pct(
     btc_7d = await repository.closest_price_snapshot("BTC", now - timedelta(days=7))
     if price_now is None or price_7d is None or btc_now is None or btc_7d is None:
         return None
-    if btc_now.price == 0 or btc_7d.price == 0:
+    if btc_now.price_usd == 0 or btc_7d.price_usd == 0:
         return None
-    ratio_now = float(price_now.price) / float(btc_now.price)
-    ratio_7d = float(price_7d.price) / float(btc_7d.price)
+    ratio_now = float(price_now.price_usd) / float(btc_now.price_usd)
+    ratio_7d = float(price_7d.price_usd) / float(btc_7d.price_usd)
     if ratio_7d == 0:
         return None
     return (ratio_now / ratio_7d - 1) * 100
@@ -355,9 +355,11 @@ async def _price_change_pct(
     """Compute price percentage change from the closest historical snapshot."""
     latest = await repository.latest_price_snapshot(asset, until=now)
     previous = await repository.closest_price_snapshot(asset, now - timedelta(days=days))
-    if latest is None or previous is None or previous.price == 0:
+    if latest is None or previous is None or previous.price_usd == 0:
         return None
-    return (float(latest.price) - float(previous.price)) / float(previous.price) * 100
+    return (float(latest.price_usd) - float(previous.price_usd)) / float(
+        previous.price_usd
+    ) * 100
 
 
 async def _safe_derived_asset(

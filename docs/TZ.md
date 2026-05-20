@@ -1228,44 +1228,18 @@ CREATE TABLE price_snapshots (
     id BIGSERIAL PRIMARY KEY,
     ts TIMESTAMPTZ NOT NULL,
     asset VARCHAR(10) REFERENCES assets(symbol),
-    price_usd NUMERIC(20,8),
-    volume_24h_usd NUMERIC(20,2),
+    source VARCHAR(20) NOT NULL,
+    quote_currency VARCHAR(10) NOT NULL,
+    price_usd NUMERIC(20,8) NOT NULL,
+    volume_24h_quote NUMERIC(20,2),
     price_change_24h_pct NUMERIC(8,4),
-    price_change_7d_pct NUMERIC(8,4),
-    source VARCHAR(20)
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    raw_payload JSONB
 );
-CREATE INDEX idx_price_ts_asset ON price_snapshots(ts DESC, asset);
-```
+CREATE INDEX ix_price_snapshots_source_asset_ts ON price_snapshots(source, asset, ts);
+CREATE INDEX ix_price_snapshots_ts ON price_snapshots(ts DESC);
+CREATE INDEX ix_price_snapshots_source ON price_snapshots(source);
 
-> Known schema drift (PriceSnapshot, на 19.05.2026)
->
-> Фактическая схема таблицы `price_snapshots` в коде и в применённой
-> миграции `2b8f4f6c9a1e_normalize_price_snapshots` отличается от
-> приведённой выше DDL:
->
-> - `ts` → `collected_at`
-> - `asset` → `symbol` (FK на `assets.symbol` сохранён)
-> - `price_usd` → `price` (NOT NULL)
-> - `volume_24h_usd` → `volume_24h_quote`
-> - удалено: `price_change_7d_pct`
-> - добавлены: `quote_currency VARCHAR(10) NOT NULL`,
->   `created_at TIMESTAMPTZ NOT NULL DEFAULT now()`,
->   `raw_payload JSON NULL`
-> - индексы: `ix_price_snapshots_source_symbol_collected_at`,
->   `ix_price_snapshots_collected_at`,
->   `ix_price_snapshots_source` (вместо `idx_price_ts_asset`)
->
-> Дрейф введён осознанно миграцией от 2026-05-15. Остальные таблицы
-> Приложения Б (`indicators`, `funding_rates`, `open_interest`,
-> `liquidations`, `etf_flows`, `global_metrics`) используют именование
-> `asset/ts` и совпадают с DDL.
->
-> Канонизация схемы (выравнивание имён под проектный стандарт
-> `asset/ts/price_usd` с сохранением дополнительных полей) решается
-> отдельной задачей после audit использования полей. Источник правды
-> для разработки на текущий момент — код и миграция, не DDL выше.
-
-```
 CREATE TABLE indicators (
     id BIGSERIAL PRIMARY KEY,
     ts TIMESTAMPTZ NOT NULL,
