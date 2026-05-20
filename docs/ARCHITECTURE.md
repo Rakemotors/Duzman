@@ -67,10 +67,19 @@ src-layout, editable install через .venv/bin/python -m pip install -e .
 
 - `src/duzman/telegram/` implements a single-chat Telegram MVP through `python-telegram-bot==21.11.1` long polling; imports are side-effect free and the worker starts only through `build_telegram_worker` / `start_telegram_background_task`.
 - `TelegramAlertPoller` reads AlertGate `ALLOW` rows from `pattern_triggers`, sends a bounded startup digest, then polls for undelivered rows every `TELEGRAM_ALERT_POLL_INTERVAL_SECONDS`.
-- `TelegramAlertSender` sends through an injected client, retries transient failures three times, and records `sent`, `failed`, or `snoozed` rows in `alert_deliveries`.
+- `TelegramAlertSender` sends through an injected client, retries transient failures three times, and records `sent`, `failed`, or `snoozed` rows in `alert_deliveries`; sent rows persist the Telegram base `message_id` for day-8 reply delivery.
 - `telegram_channel_state` stores global delivery state only (`enabled`, `muted`, `snooze_until`); Telegram token and chat id stay in `.env` / settings and are never persisted.
 - Supported commands: `/start`, `/help`, `/status`, `/alerts`, `/mute`, `/unmute`, `/snooze`.
 - Alembic migration `d7e1f2a3b4c5` creates `alert_deliveries` and `telegram_channel_state`.
+
+### Day 8 AI Explanations
+
+- `src/duzman/ai/` implements the optional Anthropic explanation layer: API client wrapper, prompt builder, budget/cache helpers, task service, and sequential background worker.
+- `alert_explanations` stores one idempotent explanation task per `pattern_trigger_id`, with terminal statuses for completed, reused cache, cost-cap skip, disabled skip, missing base message id, failed, and failed stale.
+- Telegram delivery remains the source of ordering: the base alert is sent first, its `telegram_message_id` is stored in `alert_deliveries`, and explanations are sent later as Telegram replies.
+- The layer is feature-flagged by `AI_EXPLANATIONS_ENABLED`; missing `ANTHROPIC_API_KEY`, API failures, cost caps, or missing base message ids do not block normal AlertGate or Telegram delivery.
+- Prompt context is normalized and bounded, excludes raw payloads and credentials, and the Anthropic key is read only from Settings.
+- Alembic migration `8f3a2c1b9d6e` creates `alert_explanations`; migration `9b7c6d5e4f3a` adds `alert_deliveries.telegram_message_id`.
 
 ### Day 6 Implemented Baseline
 
@@ -103,9 +112,8 @@ Two-phase read-then-write in evaluate (`count_allow_in_window`/`cooldown_hit`, t
 
 pytest, async, моки httpx. Все 268 тестов зелёные на дне 6. Никаких живых API.
 
-### Что НЕ реализовано на конец дня 7
+### Что НЕ реализовано на конец дня 8
 
-- AI-объяснения через Anthropic API
 - Telegram multi-chat, webhook, inline buttons, and per-alert snooze
 - Дашборд: FastAPI `/api/v1/` полностью, HTML + Plotly.js
 - Caddy + HTTPS
