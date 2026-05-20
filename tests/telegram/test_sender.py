@@ -1,5 +1,6 @@
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
+from typing import Any
 
 import pytest
 from sqlalchemy import select, text
@@ -15,13 +16,17 @@ class FakeTelegramClient:
     def __init__(self, *, fail_times: int = 0) -> None:
         self.fail_times = fail_times
         self.messages: list[str] = []
+        self.next_message_id = 100
 
-    async def send_message(self, *, chat_id: str, text: str) -> None:
+    async def send_message(self, *, chat_id: str, text: str) -> int:
         """Capture or fail a message send."""
         if self.fail_times > 0:
             self.fail_times -= 1
             raise RuntimeError("temporary telegram failure")
         self.messages.append(f"{chat_id}:{text}")
+        message_id = self.next_message_id
+        self.next_message_id += 1
+        return message_id
 
 
 @pytest.fixture
@@ -50,6 +55,7 @@ async def test_send_alert_records_success(session: AsyncSession) -> None:
     assert status == "sent"
     assert delivery is not None
     assert delivery.status == "sent"
+    assert delivery.telegram_message_id == 100
     assert client.messages
 
 
@@ -110,7 +116,7 @@ async def _sleep(_: float) -> None:
     """No-op async sleeper for retry tests."""
 
 
-async def _create_tables(connection) -> None:
+async def _create_tables(connection: Any) -> None:
     """Create the minimal Telegram delivery schema."""
     await connection.exec_driver_sql(
         """
@@ -136,6 +142,7 @@ async def _create_tables(connection) -> None:
             channel VARCHAR(20) NOT NULL,
             status VARCHAR(20) NOT NULL,
             sent_at DATETIME,
+            telegram_message_id BIGINT,
             ack_at DATETIME,
             snooze_until DATETIME,
             error_message TEXT,

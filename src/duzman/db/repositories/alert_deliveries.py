@@ -42,6 +42,7 @@ class AlertDeliveryRepository:
         channel: str = TELEGRAM_CHANNEL,
         sent_at: datetime | None = None,
         ack_at: datetime | None = None,
+        telegram_message_id: int | None = None,
         snooze_until: datetime | None = None,
         error_message: str | None = None,
         now: datetime,
@@ -55,6 +56,7 @@ class AlertDeliveryRepository:
                 status=status,
                 sent_at=sent_at,
                 ack_at=ack_at,
+                telegram_message_id=telegram_message_id,
                 snooze_until=snooze_until,
                 error_message=error_message,
                 updated_at=now,
@@ -64,6 +66,7 @@ class AlertDeliveryRepository:
             row.status = status
             row.sent_at = sent_at
             row.ack_at = ack_at
+            row.telegram_message_id = telegram_message_id
             row.snooze_until = snooze_until
             row.error_message = error_message
             row.updated_at = now

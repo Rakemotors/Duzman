@@ -228,6 +228,7 @@ class AlertDelivery(Base):
     channel: Mapped[str] = mapped_column(String(20), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    telegram_message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     ack_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     snooze_until: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True

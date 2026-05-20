@@ -22,8 +22,8 @@ from duzman.telegram.formatters import format_alert
 class TelegramClient(Protocol):
     """Minimal async Telegram client used by the sender."""
 
-    async def send_message(self, *, chat_id: str, text: str) -> None:
-        """Send one text message to a Telegram chat."""
+    async def send_message(self, *, chat_id: str, text: str) -> int:
+        """Send one text message to a Telegram chat and return message id."""
 
 
 class TelegramBotClient:
@@ -33,9 +33,10 @@ class TelegramBotClient:
         """Create a Bot API client without performing network calls."""
         self._bot = Bot(token=token)
 
-    async def send_message(self, *, chat_id: str, text: str) -> None:
-        """Send one text message via Telegram Bot API."""
-        await self._bot.send_message(chat_id=chat_id, text=text)
+    async def send_message(self, *, chat_id: str, text: str) -> int:
+        """Send one text message via Telegram Bot API and return message id."""
+        message = await self._bot.send_message(chat_id=chat_id, text=text)
+        return int(message.message_id)
 
 
 class TelegramAlertSender:
@@ -81,13 +82,14 @@ class TelegramAlertSender:
         error_message = ""
         for attempt, delay in enumerate(self._retry_delays, start=1):
             try:
-                await self._client.send_message(chat_id=self._chat_id, text=text)
+                message_id = await self._client.send_message(chat_id=self._chat_id, text=text)
                 sent_at = datetime.now(UTC)
                 await self._deliveries.create_or_update(
                     session,
                     int(alert.id),
                     "sent",
                     sent_at=sent_at,
+                    telegram_message_id=message_id,
                     now=sent_at,
                 )
                 return "sent"

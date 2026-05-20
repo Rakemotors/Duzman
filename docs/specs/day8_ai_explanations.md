@@ -101,6 +101,7 @@ DDL (SQL):
 - reused_cache — explanation взят из кэша, Anthropic НЕ дёргался
 - skipped_cost_cap — попал под per-hour/per-day лимит, Anthropic НЕ дёргался
 - skipped_disabled — создан при ENABLED=true но без ключа (не должно происходить если §6 соблюдён, оставлен как defensive)
+- skipped_no_base_message — base Telegram delivery не содержит `telegram_message_id`, поэтому reply-to explanation отправить нельзя; Anthropic НЕ дёргался
 - failed — Anthropic вернул ошибку или таймаут после всех retry
 - failed_stale — running висел дольше AI_EXPLANATION_RUNNING_STALE_MINUTES
 
@@ -178,7 +179,9 @@ Codex deny-rule на alembic upgrade и alembic downgrade в .codex/requirements
 - Загружает alert_deliveries по id, проверяет наличие message_id.
 - Если message_id есть — отправляет новое сообщение в тот же chat_id с reply_to_message_id=message_id.
 - Префикс текста: "🤖 Объяснение:\n\n".
-- Если message_id отсутствует — лог WARNING, не отправляет (фолбэк не нужен для MVP).
+- Если message_id отсутствует — explanation получает status=`skipped_no_base_message`,
+  error_message=`base telegram message id missing`, логируется WARNING, Anthropic НЕ
+  вызывается, Telegram explanation НЕ отправляется (фолбэк не нужен для MVP).
 
 ## 6. Интеграция с day7
 
@@ -260,6 +263,10 @@ normalized_reason: matched_conditions, отсортированные по им�
         return EXCEEDED_DAY
 
 При EXCEEDED_*: status=skipped_cost_cap, error_message="hour cap reached" или "day cap reached", completed_at=now(). Telegram explanation НЕ отправляется.
+
+`skipped_no_base_message` не входит в cost cap, не ретраится и не вызывает
+Anthropic API. Это terminal diagnostic status для delivery rows без
+`telegram_message_id`.
 
 ## 9. Безопасность
 
