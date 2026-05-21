@@ -195,6 +195,25 @@ messages, docs/ARCHITECTURE.md, CHANGELOG.md, README.md).
 
 При параллельной работе Claude Code и Codex CLI Operator явно указывает зону ответственности (например: «Codex работает в `src/duzman/collectors/`, Claude Code — в `src/duzman/api/`»). Без явного разделения параллельная работа не ведётся.
 
+## 9.1. Claude MCP
+
+Claude MCP — это Claude web сессия с явно включённым
+GitHub Duzman MCP connector в claude.ai. Полное описание
+роли — docs/TZ.md Приложение Ж, разделы Ж.1.1, Ж.2 и Ж.5.
+
+Краткая сводка для исполнителей на VPS:
+
+- Claude MCP может создавать Issues, оставлять комментарии
+  в Issues и PR, читать репо через GitHub API
+- Claude MCP НЕ пишет код напрямую в репо, НЕ пушит,
+  НЕ мержит
+- Если в Issue или комментарии PR указан автор Claude MCP,
+  работа исполнителя начинается только после Operator
+  approval (как и для любого другого Issue, открытого
+  не Operator-ом)
+- Approval Claude MCP'ом сам по себе не является
+  Operator approval
+
 ## 10. Production deployment
 
 - Production директория: `/opt/duzman`, пользователь `duzman`, без sudo

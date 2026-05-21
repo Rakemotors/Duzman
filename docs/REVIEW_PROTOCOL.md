@@ -8,8 +8,15 @@ SKILL.md, diff и отчёта верификации в теле PR.
 
 - Автор PR (агент): Claude Code или Codex CLI, который выполняет одобренное
   Issue внутри объявленной Зоны спецификации и прикладывает Definition of done.
-- Reviewer: Claude web, reviewer-agent или человек, который проверяет scope,
-  DoD, тесты, forbidden actions и необходимость обновления TZ.
+- Reviewer: Claude web, Claude MCP, reviewer-agent или
+  человек, который проверяет scope, DoD, тесты, forbidden
+  actions и необходимость обновления TZ. Reviewer agent —
+  абстрактная роль; конкретный инструментальный режим
+  (Claude web через web_fetch, Claude MCP через GitHub
+  connector, или другой) выбирает Operator на сессию.
+  Содержательные требования к review одинаковы независимо
+  от режима. Дополнительные ограничения режима Claude MCP —
+  docs/TZ.md Приложение Ж, раздел Ж.1.1.
 
 ## Что проверяет reviewer
 
