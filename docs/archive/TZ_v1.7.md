@@ -1,54 +1,11 @@
-# Duzman — Техническое задание v1.8
+# Duzman — Техническое задание v1.7
 
 Персональный crypto metrics monitor. Этап А.
 
-Версия 1.8 · 22 мая 2026
+Версия 1.7 · 19 мая 2026
 
-Version: v1.8
-Fixed: 2026-05-22
-
----
-
-## Изменения в версии 1.8
-
-Версия 1.8 формализует новую роль агента — Claude MCP. Это
-процессное изменение, не затрагивает контракт данных,
-архитектуру продукта или hard caps.
-
-Содержательные изменения:
-
-- Раздел 0.5: добавлено упоминание Claude MCP как
-  connector-toggleable режима Claude web сессии. Базовый
-  инвариант "Operator — финальная инстанция" сохраняется
-- Приложение Е, раздел Е.1: в таблицу ролей добавлена строка
-  Claude MCP с указанием "claude.ai с включённым GitHub
-  Duzman MCP connector"
-- Приложение Ж, раздел Ж.1.1 (новый): forbidden actions для
-  Claude MCP. Не объединяется с Ж.1, потому что Claude MCP
-  не является VPS-исполнителем кода — у него другой
-  риск-профиль (GitHub API actions, не shell/файлы на VPS)
-- Приложение Ж, раздел Ж.2: добавлена строка Claude MCP с
-  правами (чтение репо, создание Issues, comments в Issues
-  и PR), запретами (ссылка на Ж.1.1) и форматом отчёта
-  (комментарии в Issues/PR с явной атрибуцией "via Claude MCP")
-- Приложение Ж, раздел Ж.5 (новый): "Connector-toggleable
-  роли". Фиксирует, что Claude MCP активируется
-  Operator-ом per-conversation через GitHub Duzman MCP
-  connector в claude.ai. При выключенном или недоступном
-  connector Claude MCP деградирует в Claude web без GitHub
-  write-доступа. Reviewer agent остаётся отдельной
-  абстрактной ролью и может работать либо как Claude web
-  через web_fetch, либо как Claude MCP через connector;
-  выбор режима — за Operator на сессию
-
-AGENTS.md, .claude/skills/duzman-conventions/SKILL.md,
-docs/AGENT_PROTOCOL.md, docs/REVIEW_PROTOCOL.md синхронно
-обновлены под новую роль.
-
-Что НЕ изменилось: стек технологий, схема БД, метрики,
-шаблоны, hard caps из раздела 0.2, граница этапа А/Б,
-AlertGate логика, дефолт cooldown_hours, форматы Issue/PR,
-шаблон спеки Приложения Г, четыре вердикта reviewer-agent.
+Version: v1.7
+Fixed: 2026-05-19
 
 ---
 
@@ -360,11 +317,6 @@ docs/archive/TZ_vX.Y.md. Откат — это новый MINOR или MAJOR
 - Claude web и reviewer-agent ревьюят PR против: связанного
   Issue, docs/TZ.md, AGENTS.md/SKILL.md, diff, отчёта о
   верификации
-- Claude MCP — это Claude web сессия с явно включённым GitHub
-  Duzman MCP connector (см. Приложение Ж, разделы Ж.1.1, Ж.2
-  и Ж.5). Режим активируется Operator-ом per-conversation;
-  при выключенном connector сессия деградирует в обычный
-  Claude web без GitHub write-доступа
 - ChatGPT может черновиково писать и критиковать спеки по
   запросу Operator, но изменения в репозитории происходят
   только через обычный Git/PR workflow
@@ -381,7 +333,7 @@ docs/archive/TZ_vX.Y.md. Откат — это новый MINOR или MAJOR
 
 Этот документ — техническое задание на этап А проекта Duzman, персонального инструмента мониторинга крипто-метрик. Документ описывает что строится, как оно работает, из каких компонентов состоит, и в какой последовательности реализуется.
 
-Версия 1.8 вводит роль Claude MCP — Claude web сессия с включённым GitHub Duzman MCP connector. Включает все формализации и уточнения версий 1.3 — 1.7.
+Версия 1.7 формализует GitHub-based multi-agent workflow и change-control процесс. Включает все уточнения версий 1.3 — 1.6.
 
 Целевая аудитория документа:
 
@@ -1537,14 +1489,13 @@ git checkout -- <file>  # откатить один файл
 | Агент | Где | Роль |
 | --- | --- | --- |
 | Claude (web-чат) | claude.ai | Архитектор, авторский надзор, ревью, изменения ТЗ |
-| Claude MCP | claude.ai с GitHub Duzman MCP connector | Координация задач, создание Issues, комментарии в Issues/PR, помощь в review через GitHub API. Активируется Operator-ом per-conversation |
 | ChatGPT (web) | chatgpt.com | Второй планирующий слой, оценка решений |
 | Claude Code | `~/duzman` на VPS | Исполнитель кода под Anthropic skills |
 | Codex CLI | `~/duzman` на VPS | Исполнитель кода под OpenAI sandbox policy |
 
 ### Е.2. Источник правды
 
-Единственный источник правды — текущая версия ТЗ (на момент 22 мая 2026 это v1.8, файл `docs/TZ.md` в репозитории).
+Единственный источник правды — текущая версия ТЗ (на момент 19 мая 2026 это v1.7, файл `docs/TZ.md` в репозитории).
 
 Все агенты при старте задачи читают `docs/TZ.md`. Подробный change-control процесс описан в разделе 0.4. Отклонения от ТЗ не допускаются (см. раздел 0.4).
 
@@ -1640,59 +1591,12 @@ git checkout -- <file>  # откатить один файл
 - Live external API calls в тестах
 - Любая trading, order, account или private-key логика
 
-### Ж.1.1. Forbidden actions для Claude MCP
-
-Claude MCP — это Claude web сессия с включённым GitHub
-Duzman MCP connector. Он не является VPS-исполнителем кода
-и имеет другой риск-профиль: действия выполняются через
-GitHub API, а не через shell на VPS. Для Claude MCP
-действуют отдельные ограничения.
-
-Claude MCP запрещено:
-
-- push в main или любую protected branch (любым способом,
-  включая create_or_update_file, push_files, merge через
-  GitHub API)
-- merge pull request
-- force push в любую ветку
-- прямой write кода или контента (создание/обновление файлов
-  через GitHub API) без отдельного approval Operator-ом для
-  конкретной задачи
-- изменение repository settings, branch protection rules,
-  collaborators, teams
-- любые операции с secrets, actions, workflows,
-  environments, deployments
-- удаление репозитория, веток, файлов через GitHub API
-- изменение GitHub permissions, PAT scopes, App settings
-- bypass Issue/PR workflow (выполнение задачи без
-  одобренного Issue)
-- трактовка собственного Issue/PR comment как Operator
-  approval; approval даётся только Operator-ом в чате или
-  отдельным explicit action
-
-Claude MCP разрешено:
-
-- чтение файлов репозитория и diff
-- чтение Issues, PR и связанных threads
-- создание Issues
-- комментирование Issues
-- комментирование PR (включая review-комментарии и verdict
-  по docs/REVIEW_PROTOCOL.md)
-- координация задач: ссылки между Issues, расстановка
-  labels на собственных или ranее одобренных Issues
-
-Общие forbidden actions из Ж.1 на Claude MCP не
-распространяются, потому что они описывают workspace на VPS
-(sudo, .env, /opt/duzman, alembic, psql), а Claude MCP в
-этом workspace не работает.
-
 ### Ж.2. Роли
 
 | Роль | Где работает | Что делает | Что НЕ делает | Отчёт |
 |------|--------------|------------|----------------|-------|
 | Operator | desktop, SSH, web-чат | Решения, scope, merge, deploy, разрешение конфликтов, ведение CHANGELOG.md и docs/ARCHITECTURE.md через свои коммиты, emergency и manual fixes | Не является штатным исполнителем agent workflow; обычная реализация идёт через Issue/PR | Не требуется |
 | Claude web | claude.ai | Архитектура, написание ТЗ и спек (формат Приложения Г), code review через web_fetch публичного репо, change-control по 0.4 | Не выполняет код на VPS, не пушит | Спецификации и ревью-комментарии в чат |
-| Claude MCP | claude.ai с включённым GitHub Duzman MCP connector | Чтение репо, Issues, PR, diff. Создание Issues. Комментарии в Issues и PR. Помощь в review и постановке задач через GitHub API. Координация workflow | См. Ж.1.1. Не пишет код, не пушит, не мержит, не меняет settings/secrets/workflows | Создаваемые Issues и комментарии в GitHub. В тексте комментариев явная атрибуция: "via Claude MCP" |
 | ChatGPT web | chatgpt.com | Second opinion на архитектурные решения по запросу Operator, черновики и критика спек | Не меняет репозиторий напрямую | Свободный формат |
 | Claude Code | ~/duzman на VPS | Исполнение спек, тесты, рефакторинг внутри зоны спецификации, открытие feature branch и PR | Ж.1 плюс: не пишет ТЗ, не пишет спеки | По docs/AGENT_PROTOCOL.md (Definition of done): diff, тесты, чек-лист критериев готовности, хеш коммита, обновлённый docs/ARCHITECTURE.md, ссылка на PR |
 | Codex CLI | ~/duzman на VPS | Исполнение спек, тесты, типизированные модули | Ж.1 плюс: не делает архитектурных решений, не правит несколько модулей в одной задаче | То же что Claude Code |
@@ -1741,60 +1645,11 @@ Operator.
 - В docs/ARCHITECTURE.md, если изменение только архитектурное и
   не требует обновления ТЗ
 
-### Ж.5. Connector-toggleable роли
-
-Claude MCP — не постоянное свойство Claude web, а режим
-конкретной сессии. Режим активируется Operator-ом
-индивидуально для каждого чата через включение GitHub
-Duzman MCP connector в claude.ai (Settings > Connectors,
-кнопка `+` в поле ввода чата).
-
-Поведение при выключенном или недоступном connector:
-
-- Сессия деградирует в обычный Claude web без GitHub
-  write-доступа
-- Чтение публичного репозитория остаётся возможным через
-  web_fetch raw.githubusercontent.com URLs
-- Создание Issues, комментариев в Issues и PR недоступно
-- Это не ошибка и не нарушение конвенции — это нормальный
-  fallback. В каноне зафиксировано явно, чтобы следующая
-  сессия знала: отсутствие connector в чате не означает
-  что Claude MCP сломан или временно недоступен в продукте
-
-Reviewer agent — отдельная абстрактная роль (что делается,
-не через какой инструмент). Reviewer agent может выполняться:
-- Claude web через web_fetch публичного репо
-- Claude MCP через GitHub connector
-- потенциально другой reviewer-tool в будущем
-
-Выбор инструментального режима для конкретного ревью —
-решение Operator на сессию. Содержательные требования к
-review (Приложение Ж.2, docs/REVIEW_PROTOCOL.md) не
-зависят от выбора инструмента.
-
-Ограничения по reviewer-agent сохраняются независимо от
-режима: он не пишет код, не мержит, не меняет settings.
-Если reviewer-agent работает в режиме Claude MCP, на него
-дополнительно распространяются ограничения Ж.1.1.
-
-Аутентификация Claude MCP к GitHub:
-
-- Используется fine-grained Personal Access Token,
-  созданный Operator-ом и привязанный к одному репозиторию
-  Rakemotors/Duzman
-- Минимальные permissions: Contents Read, Issues Read &
-  Write, Pull requests Read & Write, Metadata Read
-- Token хранится в настройках MCP connector в claude.ai,
-  не в репозитории, не в чате, не в .env проекта
-- Ротация и revoke токена — ответственность Operator
-- При revoke токена Claude MCP automatically переходит в
-  fallback режим (Claude web без GitHub write-доступа)
-
 ---
 
 ## Заключение
 
-Версия 1.8 вводит роль Claude MCP. Включает все формализации и уточнения версий 1.3 — 1.7.
+Версия 1.7 формализует GitHub-based multi-agent workflow и change-control процесс. Включает все уточнения версий 1.3 — 1.6.
 
 После завершения этапа А и периода эксплуатации не менее 30 дней принимается решение о переходе к этапу Б.
 
@@ -1810,4 +1665,3 @@ review (Приложение Ж.2, docs/REVIEW_PROTOCOL.md) не
 | 1.5 | 17 мая 2026 | Перед Спекой 4 дня 6 (AlertGate). Раздел 4.6 дополнен явным порядком проверок (cooldown -> daily hard cap -> hourly hard cap -> soft cap) и определением источника правды для счётчиков (только ALLOW; на дне 6 — через pattern_triggers.conditions_snapshot.gate_decision; на дне 7 — через alerts_sent). Раздел 7.7 и Приложение Б синхронно дополнены |
 | 1.6 | 18 мая 2026 | Перед началом реализации Спеки 4 дня 6 (AlertGate). Раздел 4.6 и 7.7 уточнены: дефолт `cooldown_hours = 2 часа` реализуется в Pydantic-модели `PatternDefinition` (`src/duzman/patterns/models.py`) на этапе загрузки конфигурации, AlertGate собственного fallback не имеет. Других изменений нет |
 | 1.7 | 19 мая 2026 | Формализация GitHub-based multi-agent workflow. Раздел 0.4 переписан как change-control. Добавлен раздел 0.5 (GitHub как транспорт между агентами). Приложение Г расширено до 8 полей (добавлена "Зона спецификации"). Приложение Е обновлено под Issue/PR workflow. Добавлено Приложение Ж (роли и forbidden actions, четыре вердикта reviewer-agent). Синхронные апдейты AGENTS.md и .claude/skills/duzman-conventions/SKILL.md. Docs-only, продуктовые контракты не затронуты |
-| 1.8 | 22 мая 2026 | Введена роль Claude MCP — Claude web сессия с включённым GitHub Duzman MCP connector. Раздел 0.5 дополнен упоминанием Claude MCP. Приложение Е (Е.1) дополнено строкой Claude MCP. Приложение Ж: добавлен Ж.1.1 (forbidden actions для Claude MCP), добавлена строка в Ж.2, добавлен Ж.5 (Connector-toggleable роли, fallback при выключенном connector, reviewer-agent как отдельная роль, аутентификация через fine-grained PAT). Синхронные апдейты AGENTS.md, SKILL.md, docs/AGENT_PROTOCOL.md, docs/REVIEW_PROTOCOL.md. Docs-only, продуктовые контракты не затронуты |

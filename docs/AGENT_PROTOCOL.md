@@ -1,4 +1,4 @@
-# Agent Protocol (v1.7)
+# Agent Protocol (v1.8)
 
 Описывает обязательные шаги исполнителя (Claude Code / Codex CLI)
 при работе над задачей. Привязка к docs/TZ.md разделы 0.4, 0.5,
@@ -69,3 +69,24 @@
 
 При провале задача передаётся другому исполнителю с пометкой
 о состоянии или возвращается на доработку спеки по 0.4.
+
+## 9. Claude MCP в workflow
+
+Claude MCP может участвовать в шагах §1 (постановка задачи
+через Issue) и §6 (ревью PR). Не участвует в §2-§5
+(подготовка ветки, реализация, DoD, push) и §7 (merge,
+deploy).
+
+При создании Issue Claude MCP'ом — Issue считается
+кандидатом задачи и требует явного Operator approval
+перед началом работы исполнителя. Approval даётся в чате
+или явным labelling Operator-ом.
+
+При ревью PR Claude MCP'ом — verdict оформляется по
+docs/REVIEW_PROTOCOL.md, в теле комментария явная
+атрибуция "via Claude MCP". Verdict APPROVE от Claude MCP
+не является разрешением на merge; merge выполняет
+Operator.
+
+Полные права и запреты Claude MCP — docs/TZ.md
+Приложение Ж, разделы Ж.1.1, Ж.2 и Ж.5.
