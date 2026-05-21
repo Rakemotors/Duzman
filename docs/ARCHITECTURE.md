@@ -83,6 +83,13 @@ src-layout, editable install через .venv/bin/python -m pip install -e .
 - Runtime wiring: `src/duzman/ai/app.py` exposes `build_components_from_settings()` which assembles async engine, session factory, AnthropicClient, Telegram sender, ExplanationService, and ExplanationWorker. Worker is launched via `src/duzman/runtime/run_ai_explanation_worker.py` supporting both `run_forever` (daemon) and `--run-once` modes. Async DB URL is derived from `settings.database_url` at startup (`postgresql://` → `postgresql+asyncpg://`); the `.env` `DATABASE_URL` stays in sync form for existing sync code.
 - Alembic migration `8f3a2c1b9d6e` creates `alert_explanations`; migration `9b7c6d5e4f3a` adds `alert_deliveries.telegram_message_id`.
 
+### Day 8 Smoke Harness
+
+- `src/duzman/runtime/verify_telegram_base.py` is the B0 dev-only smoke entrypoint. It inserts one synthetic `smoke_b0` AlertGate trigger for BTC, runs Telegram base delivery with AI disabled, and verifies that `alert_deliveries.telegram_message_id` is persisted.
+- `src/duzman/runtime/run_ai_explanation_smoke.py` is the B1 dev-only smoke entrypoint. It takes a B0 trigger id, validates `pattern_name == "smoke_b0"`, creates or reuses a pending explanation task, runs one AI worker cycle, and can roll back the smoke chain with `--rollback`.
+- These scripts are not registered in APScheduler and are not called by the production scheduler. They are manual pre-rollout verification commands for Telegram base delivery and AI explanation delivery.
+- Full operator contract, exit codes, required environment variables, database preconditions, and rollback semantics are documented in `docs/specs/day8_smoke_harness.md`.
+
 ### Day 6 Implemented Baseline
 
 - Pattern evaluation pipeline: `src/duzman/patterns/evaluation.py`
