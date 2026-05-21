@@ -864,7 +864,7 @@ duzman/
 │   ├── api/         (routes, auth, schemas)
 │   ├── dashboard/   (routes, templates/)
 │   ├── scheduler/   (jobs)
-│   └── runtime/     (one-shot entrypoints, verify_*)
+│   └── runtime/     (one-shot entrypoints, verify_*, Day 8 smoke harness)
 ├── .claude/skills/duzman-conventions/SKILL.md
 ├── AGENTS.md (для Codex CLI)
 ├── .codex/ (Codex policy)
