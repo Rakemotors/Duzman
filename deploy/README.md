@@ -41,6 +41,29 @@ existence, non-empty size, permissions, and owner. Missing or mismatched `.env`
 state is printed as warnings and does not turn a successful rsync into a
 failure.
 
+## Contaminated targets
+
+Before rsync, the script checks only the top-level entries in the target for
+home-directory or agent markers that do not belong in a deploy-only directory:
+`.ssh`, `.npm`, `.cache`, `.local`, `.config`, `.claude`, `.bash_history`,
+`.bashrc`, `.profile`, `.lesshst`, `.gitconfig`, and `.claude.json`.
+
+Dry-run mode prints a warning with any detected marker names and continues so
+the Operator can inspect the rsync plan. Apply mode refuses the target before
+rsync with a pre-flight failure until the target is clean. This refusal is
+intentional, not a bug; the script does not move, delete, copy, chmod, chown, or
+read those marker entries.
+
+For the production target, remediate a contaminated directory manually:
+
+1. Back up `/opt/duzman/.env` to a safe location outside `/opt/duzman`.
+2. Rename `/opt/duzman` to `/opt/duzman.contaminated.YYYYMMDD`.
+3. Create a fresh `/opt/duzman` owned by `duzman:duzman`.
+4. Place `.env` back into `/opt/duzman` with mode `600` and owner
+   `duzman:duzman`.
+5. Run `sudo bash deploy/deploy.sh --dry-run` to verify the clean state, then
+   run `sudo bash deploy/deploy.sh --apply`.
+
 ## Boundaries
 
 The script does not copy, create, overwrite, modify, chmod, or print the
