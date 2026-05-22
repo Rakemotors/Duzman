@@ -1,6 +1,6 @@
 # Review Protocol
 
-Этот протокол описывает review PR по workflow TZ v1.7, Приложение Ж.
+Этот протокол описывает review PR по workflow TZ v1.8, Приложения Ж и З.
 Reviewer проверяет PR против связанного Issue, docs/TZ.md, AGENTS.md или
 SKILL.md, diff и отчёта верификации в теле PR.
 
@@ -17,14 +17,17 @@ SKILL.md, diff и отчёта верификации в теле PR.
   Содержательные требования к review одинаковы независимо
   от режима. Дополнительные ограничения режима Claude MCP —
   docs/TZ.md Приложение Ж, раздел Ж.1.1.
+- Review verdict не является Operator approval. Verdict
+  APPROVE означает готовность к merge Operator-ом; merge
+  остаётся authority action.
 
 ## Что проверяет reviewer
 
-- Связанный Issue указан и содержит 8 полей Приложения Г TZ v1.7.
+- Связанный Issue указан и содержит 8 полей Приложения Г TZ v1.8.
 - Diff находится внутри объявленной Зоны спецификации.
 - Definition of done из Issue перенесён в PR и отмечен PASS/FAIL.
 - Проверки из Issue и PR выполнены, а блокирующие проверки зелёные.
-- Forbidden actions из TZ v1.7 Приложение Ж не нарушены.
+- Forbidden actions из TZ v1.8 Приложение Ж не нарушены.
 - Изменение не требует предварительного обновления docs/TZ.md.
 
 ## Вердикты
