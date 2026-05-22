@@ -160,7 +160,7 @@ messages, docs/ARCHITECTURE.md, CHANGELOG.md, README.md).
 
 ### Каждая сессия
 - Начало: `git pull`
-- Конец: `git commit` с осмысленным сообщением. Push в feature branch вида `pr-*` исполнителем разрешён при одобренном Issue. Push в main и protected branches запрещён. Merge через PR.
+- Конец: `git commit` с осмысленным сообщением. Push в feature branch вида `pr-*` исполнителем разрешён при одобренном Issue. Push в main и protected branches запрещён. PR после push открывает исполнитель сам либо Claude MCP из уже запушенной executor-owned ветки. Merge через PR делает Operator.
 
 ### Размер коммитов
 - Один коммит = одна логическая задача
@@ -199,14 +199,19 @@ messages, docs/ARCHITECTURE.md, CHANGELOG.md, README.md).
 
 Claude MCP — это Claude web сессия с явно включённым
 GitHub Duzman MCP connector в claude.ai. Полное описание
-роли — docs/TZ.md Приложение Ж, разделы Ж.1.1, Ж.2 и Ж.5.
+роли — docs/TZ.md Приложение Ж, разделы Ж.1.1, Ж.2 и Ж.5,
+и Приложение З.
 
 Краткая сводка для исполнителей на VPS:
 
 - Claude MCP может создавать Issues, оставлять комментарии
-  в Issues и PR, читать репо через GitHub API
-- Claude MCP НЕ пишет код напрямую в репо, НЕ пушит,
-  НЕ мержит
+  в Issues и PR, читать репо через GitHub API и открывать PR
+  из уже запушенной executor-owned feature branch
+- Claude MCP НЕ пишет код напрямую в репо, НЕ коммитит,
+  НЕ пушит и НЕ мержит
+- Codex CLI writes and pushes the feature branch under an
+  approved Issue. Claude MCP may open the PR from that
+  branch. Operator merges
 - Если в Issue или комментарии PR указан автор Claude MCP,
   работа исполнителя начинается только после Operator
   approval (как и для любого другого Issue, открытого

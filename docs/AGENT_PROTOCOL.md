@@ -42,7 +42,14 @@
 ## 5. Push и PR
 
 - git push -u origin pr-<short-issue-name>
-- Открыть PR в main с заполненным телом по пункту 4
+- Открыть PR в main может сам исполнитель, если доступ к
+  gh/GitHub auth это позволяет
+- Claude MCP может открыть PR из уже запушенной
+  executor-owned feature branch, заполняя тело PR по пункту
+  4 от лица исполнителя и добавляя строку "PR opened via
+  Claude MCP on behalf of <executor>"
+- Operator может открыть PR в fallback-сценарии, но это не
+  штатный путь
 - PR в main, не в protected branch напрямую
 
 ## 6. Ревью
@@ -73,9 +80,10 @@
 ## 9. Claude MCP в workflow
 
 Claude MCP может участвовать в шагах §1 (постановка задачи
-через Issue) и §6 (ревью PR). Не участвует в §2-§5
-(подготовка ветки, реализация, DoD, push) и §7 (merge,
-deploy).
+через Issue), §5 (открытие PR из уже запушенной
+executor-owned feature branch) и §6 (ревью PR). Не
+участвует в §2-§4 (подготовка ветки, реализация, DoD),
+push из §5 и §7 (merge, deploy).
 
 При создании Issue Claude MCP'ом — Issue считается
 кандидатом задачи и требует явного Operator approval
@@ -88,5 +96,10 @@ docs/REVIEW_PROTOCOL.md, в теле комментария явная
 не является разрешением на merge; merge выполняет
 Operator.
 
+При открытии PR Claude MCP не делает коммитов и не меняет
+содержимое ветки. PR открывается только из уже запушенной
+ветки исполнителя.
+
 Полные права и запреты Claude MCP — docs/TZ.md
-Приложение Ж, разделы Ж.1.1, Ж.2 и Ж.5.
+Приложение Ж, разделы Ж.1.1, Ж.2 и Ж.5, и
+Приложение З.

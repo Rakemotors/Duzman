@@ -11,39 +11,43 @@ Fixed: 2026-05-22
 
 ## Изменения в версии 1.8
 
-Версия 1.8 формализует новую роль агента — Claude MCP. Это
-процессное изменение, не затрагивает контракт данных,
-архитектуру продукта или hard caps.
+Версия 1.8 формализует новую роль агента — Claude MCP — и
+проводит полный аудит workflow-документации, чтобы устранить
+documentation drift. Изменения процессные, не затрагивают
+контракт данных, архитектуру продукта или hard caps.
 
 Содержательные изменения:
 
+- Раздел 0.4.5: добавлен audit requirement против documentation
+  drift. Любой документ, формулировки которого противоречат
+  целевой workflow-модели (Codex/Claude Code writes and pushes
+  feature branch; Claude MCP may open the Pull Request from that
+  already pushed branch and may comment/review; Operator merges),
+  считается documentation bug и фиксируется ближайшим PR. Архив
+  docs/archive/* и docs/specs/* под audit не попадают; они
+  помечаются статусами SUPERSEDED/ARCHIVED/IMPLEMENTED.
 - Раздел 0.5: добавлено упоминание Claude MCP как
   connector-toggleable режима Claude web сессии. Базовый
-  инвариант "Operator — финальная инстанция" сохраняется
-- Приложение Е, раздел Е.1: в таблицу ролей добавлена строка
-  Claude MCP с указанием "claude.ai с включённым GitHub
-  Duzman MCP connector"
-- Приложение Ж, раздел Ж.1.1 (новый): forbidden actions для
-  Claude MCP. Не объединяется с Ж.1, потому что Claude MCP
-  не является VPS-исполнителем кода — у него другой
-  риск-профиль (GitHub API actions, не shell/файлы на VPS)
-- Приложение Ж, раздел Ж.2: добавлена строка Claude MCP с
-  правами (чтение репо, создание Issues, comments в Issues
-  и PR), запретами (ссылка на Ж.1.1) и форматом отчёта
-  (комментарии в Issues/PR с явной атрибуцией "via Claude MCP")
-- Приложение Ж, раздел Ж.5 (новый): "Connector-toggleable
-  роли". Фиксирует, что Claude MCP активируется
-  Operator-ом per-conversation через GitHub Duzman MCP
-  connector в claude.ai. При выключенном или недоступном
-  connector Claude MCP деградирует в Claude web без GitHub
-  write-доступа. Reviewer agent остаётся отдельной
-  абстрактной ролью и может работать либо как Claude web
-  через web_fetch, либо как Claude MCP через connector;
-  выбор режима — за Operator на сессию
+  инвариант Operator-as-final-authority сохраняется.
+- Приложение Е.1: в таблицу ролей добавлена строка Claude MCP.
+- Приложение Ж.1.1 (новый): forbidden actions для Claude MCP.
+  Не объединяется с Ж.1, так как Claude MCP — не
+  VPS-исполнитель.
+- Приложение Ж.2: добавлена строка Claude MCP с правами
+  (чтение, Issues, comments, открытие PR из executor-owned
+  ветки), запретами (ссылка на Ж.1.1) и форматом отчёта.
+- Приложение Ж.5 (новый): Connector-toggleable роли. Фиксирует
+  per-conversation активацию, fallback в Claude web без
+  write-доступа при выключенном connector, reviewer-agent как
+  абстрактную роль, аутентификацию через fine-grained PAT.
+- Приложение З (новое): нормативная матрица implementation /
+  coordination / authority actions. Дополняет Приложение Ж.
 
-AGENTS.md, .claude/skills/duzman-conventions/SKILL.md,
-docs/AGENT_PROTOCOL.md, docs/REVIEW_PROTOCOL.md синхронно
-обновлены под новую роль.
+Синхронные апдейты в том же PR: AGENTS.md,
+.claude/skills/duzman-conventions/SKILL.md,
+docs/AGENT_PROTOCOL.md, docs/REVIEW_PROTOCOL.md,
+docs/ARCHITECTURE.md, README.md (последние два — bump
+TZ-привязки по 0.4.6).
 
 Что НЕ изменилось: стек технологий, схема БД, метрики,
 шаблоны, hard caps из раздела 0.2, граница этапа А/Б,
@@ -306,6 +310,20 @@ actions, в том же PR обновляются:
 
 Расхождение между docs/TZ.md и файлами конвенций — баг
 документации, фиксируется ближайшим PR.
+
+Документ считается documentation drift и фиксируется ближайшим
+PR по change-control, если его формулировки противоречат целевой
+модели workflow: Codex/Claude Code writes and pushes the feature
+branch; Claude MCP may open the Pull Request from that already
+pushed branch and may comment/review; Operator merges. Архивные
+snapshots в docs/archive/* и исторические спеки в docs/specs/*
+под этот audit не попадают: они помечаются статусами
+SUPERSEDED / ARCHIVED / IMPLEMENTED и хранятся как историческая
+запись, не как operational guidance. docs/TZ.md в main —
+единственный канонический source of truth; AGENTS.md,
+.claude/skills/duzman-conventions/SKILL.md,
+docs/AGENT_PROTOCOL.md, docs/REVIEW_PROTOCOL.md,
+docs/ARCHITECTURE.md, README.md синхронизируются с ним.
 
 0.4.6. Синхронные апдейты производных документов
 
@@ -1656,8 +1674,11 @@ Claude MCP запрещено:
 - merge pull request
 - force push в любую ветку
 - прямой write кода или контента (создание/обновление файлов
-  через GitHub API) без отдельного approval Operator-ом для
-  конкретной задачи
+  через GitHub API), commits, push в любую ветку, force push.
+  Создание PR из уже запушенной executor-owned ветки разрешено
+  (см. Claude MCP разрешено) и НЕ считается write-действием,
+  так как не создаёт новых коммитов и не модифицирует
+  содержимое файлов
 - изменение repository settings, branch protection rules,
   collaborators, teams
 - любые операции с secrets, actions, workflows,
@@ -1678,6 +1699,12 @@ Claude MCP разрешено:
 - комментирование Issues
 - комментирование PR (включая review-комментарии и verdict
   по docs/REVIEW_PROTOCOL.md)
+- открытие Pull Request из уже запушенной executor-owned
+  feature branch (открытой Claude Code или Codex CLI под
+  одобренным Issue). При открытии PR Claude MCP заполняет
+  тело PR по docs/AGENT_PROTOCOL.md от лица исполнителя и
+  добавляет в тело PR строку "PR opened via Claude MCP on
+  behalf of <executor>"
 - координация задач: ссылки между Issues, расстановка
   labels на собственных или ranее одобренных Issues
 
@@ -1692,7 +1719,7 @@ Claude MCP разрешено:
 |------|--------------|------------|----------------|-------|
 | Operator | desktop, SSH, web-чат | Решения, scope, merge, deploy, разрешение конфликтов, ведение CHANGELOG.md и docs/ARCHITECTURE.md через свои коммиты, emergency и manual fixes | Не является штатным исполнителем agent workflow; обычная реализация идёт через Issue/PR | Не требуется |
 | Claude web | claude.ai | Архитектура, написание ТЗ и спек (формат Приложения Г), code review через web_fetch публичного репо, change-control по 0.4 | Не выполняет код на VPS, не пушит | Спецификации и ревью-комментарии в чат |
-| Claude MCP | claude.ai с включённым GitHub Duzman MCP connector | Чтение репо, Issues, PR, diff. Создание Issues. Комментарии в Issues и PR. Помощь в review и постановке задач через GitHub API. Координация workflow | См. Ж.1.1. Не пишет код, не пушит, не мержит, не меняет settings/secrets/workflows | Создаваемые Issues и комментарии в GitHub. В тексте комментариев явная атрибуция: "via Claude MCP" |
+| Claude MCP | claude.ai с включённым GitHub Duzman MCP connector | Чтение репо, Issues, PR, diff. Создание Issues. Комментарии в Issues и PR. Открытие Pull Request из уже запушенной executor-owned feature branch. Помощь в review и постановке задач через GitHub API. Координация workflow | См. Ж.1.1. Не пишет код, не пушит, не мержит, не меняет settings/secrets/workflows | Создаваемые Issues и комментарии в GitHub. В тексте комментариев явная атрибуция: "via Claude MCP" |
 | ChatGPT web | chatgpt.com | Second opinion на архитектурные решения по запросу Operator, черновики и критика спек | Не меняет репозиторий напрямую | Свободный формат |
 | Claude Code | ~/duzman на VPS | Исполнение спек, тесты, рефакторинг внутри зоны спецификации, открытие feature branch и PR | Ж.1 плюс: не пишет ТЗ, не пишет спеки | По docs/AGENT_PROTOCOL.md (Definition of done): diff, тесты, чек-лист критериев готовности, хеш коммита, обновлённый docs/ARCHITECTURE.md, ссылка на PR |
 | Codex CLI | ~/duzman на VPS | Исполнение спек, тесты, типизированные модули | Ж.1 плюс: не делает архитектурных решений, не правит несколько модулей в одной задаче | То же что Claude Code |
@@ -1792,9 +1819,94 @@ review (Приложение Ж.2, docs/REVIEW_PROTOCOL.md) не
 
 ---
 
+## Приложение З. Категории действий в workflow
+
+Новое в v1.8. Нормативная матрица: какой роли какие действия
+разрешены. Дополняет Приложение Ж: Ж описывает forbidden
+actions и роли, З описывает affirmative authority по
+категориям действий.
+
+### З.1. Implementation actions
+
+Действия по созданию и модификации артефактов репозитория.
+
+Содержание:
+- редактирование файлов (код, документация, тесты, конфиги)
+- создание новых файлов в рамках зоны спецификации
+- коммиты
+- push в feature branch, открытую под одобренным Issue
+- запуск тестов и линтеров локально
+
+Исполнители: Claude Code, Codex CLI.
+
+Ограничения: Ж.1 (общие forbidden actions для исполнителей),
+зона спецификации из поля 8 Приложения Г.
+
+### З.2. Coordination actions
+
+Действия по координации workflow через GitHub API без
+модификации содержимого файлов.
+
+Содержание:
+- чтение репозитория, Issues, PR, diff
+- создание Issues
+- комментирование Issues
+- комментирование PR (включая review-комментарии)
+- публикация review verdict по docs/REVIEW_PROTOCOL.md
+- открытие Pull Request из уже запушенной executor-owned
+  feature branch
+- расстановка labels на собственных или ранее одобренных
+  Issues
+- ссылки между Issues и PR
+
+Исполнитель: Claude MCP (Claude web сессия с включённым
+GitHub Duzman MCP connector).
+
+Ограничения: Ж.1.1 (forbidden actions для Claude MCP). В
+частности — Claude MCP не делает коммитов, не пушит, не
+мержит, не модифицирует файлы напрямую, не меняет
+settings/secrets/workflows/deployments, не трактует
+собственные комментарии как Operator approval.
+
+### З.3. Authority actions
+
+Действия, требующие решения Operator.
+
+Содержание:
+- утверждение scope задачи (approval Issue/PR)
+- merge Pull Request в main
+- deploy в production
+- production migrations (alembic upgrade против prod БД)
+- управление secrets, environment variables, PAT
+- изменение GitHub settings, branch protection, permissions,
+  collaborators
+- финальное разрешение конфликтов между агентами
+- emergency и manual fixes вне обычного Issue/PR workflow
+
+Исполнитель: Operator.
+
+Operator может делегировать отдельные authority actions
+автоматизации (например, branch protection auto-merge при
+наличии review approval), но решение о делегировании само по
+себе — authority action.
+
+### З.4. Целевая модель в одной формулировке
+
+Codex/Claude Code writes and pushes the feature branch under
+an approved Issue. Claude MCP may open the Pull Request from
+that already pushed branch, comment, and post review verdicts.
+Operator merges, deploys, and resolves conflicts.
+
+Reviewer-agent — отдельная абстрактная роль (см. Ж.5), не
+привязанная к категориям З.1-З.3 жёстко: review verdicts
+формально являются coordination actions, но содержательно
+ближе к authority advisory и не равны Operator approval.
+
+---
+
 ## Заключение
 
-Версия 1.8 вводит роль Claude MCP. Включает все формализации и уточнения версий 1.3 — 1.7.
+Версия 1.8 вводит роль Claude MCP и фиксирует целевую workflow-модель: Codex/Claude Code writes and pushes the feature branch, Claude MCP opens and comments PR, Operator merges. Включает все формализации и уточнения версий 1.3 — 1.7.
 
 После завершения этапа А и периода эксплуатации не менее 30 дней принимается решение о переходе к этапу Б.
 
@@ -1810,4 +1922,4 @@ review (Приложение Ж.2, docs/REVIEW_PROTOCOL.md) не
 | 1.5 | 17 мая 2026 | Перед Спекой 4 дня 6 (AlertGate). Раздел 4.6 дополнен явным порядком проверок (cooldown -> daily hard cap -> hourly hard cap -> soft cap) и определением источника правды для счётчиков (только ALLOW; на дне 6 — через pattern_triggers.conditions_snapshot.gate_decision; на дне 7 — через alerts_sent). Раздел 7.7 и Приложение Б синхронно дополнены |
 | 1.6 | 18 мая 2026 | Перед началом реализации Спеки 4 дня 6 (AlertGate). Раздел 4.6 и 7.7 уточнены: дефолт `cooldown_hours = 2 часа` реализуется в Pydantic-модели `PatternDefinition` (`src/duzman/patterns/models.py`) на этапе загрузки конфигурации, AlertGate собственного fallback не имеет. Других изменений нет |
 | 1.7 | 19 мая 2026 | Формализация GitHub-based multi-agent workflow. Раздел 0.4 переписан как change-control. Добавлен раздел 0.5 (GitHub как транспорт между агентами). Приложение Г расширено до 8 полей (добавлена "Зона спецификации"). Приложение Е обновлено под Issue/PR workflow. Добавлено Приложение Ж (роли и forbidden actions, четыре вердикта reviewer-agent). Синхронные апдейты AGENTS.md и .claude/skills/duzman-conventions/SKILL.md. Docs-only, продуктовые контракты не затронуты |
-| 1.8 | 22 мая 2026 | Введена роль Claude MCP — Claude web сессия с включённым GitHub Duzman MCP connector. Раздел 0.5 дополнен упоминанием Claude MCP. Приложение Е (Е.1) дополнено строкой Claude MCP. Приложение Ж: добавлен Ж.1.1 (forbidden actions для Claude MCP), добавлена строка в Ж.2, добавлен Ж.5 (Connector-toggleable роли, fallback при выключенном connector, reviewer-agent как отдельная роль, аутентификация через fine-grained PAT). Синхронные апдейты AGENTS.md, SKILL.md, docs/AGENT_PROTOCOL.md, docs/REVIEW_PROTOCOL.md. Docs-only, продуктовые контракты не затронуты |
+| 1.8 | 22 мая 2026 | Введена роль Claude MCP. Раздел 0.5 дополнен. Приложение Е.1 дополнено. Приложение Ж: добавлен Ж.1.1, добавлена строка в Ж.2, добавлен Ж.5. Расширение workflow audit: в 0.4.5 добавлен audit requirement против documentation drift, Ж.1.1 явно разрешает Claude MCP открывать PR из уже запушенной executor-owned ветки. Добавлено Приложение З (категории действий: implementation / coordination / authority). Синхронные апдейты AGENTS.md, SKILL.md, docs/AGENT_PROTOCOL.md, docs/REVIEW_PROTOCOL.md, docs/ARCHITECTURE.md, README.md (bump TZ-привязки по 0.4.6). Docs-only, продуктовые контракты не затронуты |
