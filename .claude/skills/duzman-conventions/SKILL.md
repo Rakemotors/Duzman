@@ -46,6 +46,13 @@ CHANGELOG.md, самоссылки внутри docs/TZ.md.
 ссылку на ту версию TZ, на которой исполнялись. При bump TZ ранее
 смерженные спеки не обновляются.
 
+Document status policy (см. docs/TZ.md §0.4.8):
+- docs/TZ.md в main — единственный canonical source of truth
+- ACTIVE документы синхронизированы с TZ. При расхождении выигрывает TZ
+- SUPERSEDED, ARCHIVED, DRAFT документы НЕ используются как operational guidance
+- docs/archive/* всегда ARCHIVED
+- Если для задачи нужен документ не-ACTIVE статуса — эскалация Operator-у
+
 ## 2. Архитектурные правила
 
 - src-layout: весь Python-код в `src/duzman/`

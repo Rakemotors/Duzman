@@ -1,42 +1,11 @@
-# Duzman — Техническое задание v1.9
+# Duzman — Техническое задание v1.8
 
 Персональный crypto metrics monitor. Этап А.
 
-Версия 1.9 · 22 мая 2026
+Версия 1.8 · 22 мая 2026
 
-Version: v1.9
+Version: v1.8
 Fixed: 2026-05-22
-
----
-
-## Изменения в версии 1.9
-
-Версия 1.9 вводит documentation status policy — короткую
-систему статусов для всех operational документов репозитория.
-Изменения процессные, не затрагивают контракт данных,
-архитектуру продукта или hard caps.
-
-Содержательные изменения:
-
-- Раздел 0.4.8 (новый): documentation status policy. Пять
-  статусов (ACTIVE, IMPLEMENTED, SUPERSEDED, ARCHIVED, DRAFT)
-  и правила их применения. Канонический документ остаётся
-  один — docs/TZ.md в main (по 0.4.1). Документы статуса
-  SUPERSEDED, ARCHIVED, DRAFT не используются как operational
-  guidance.
-
-Синхронные апдейты в том же PR: AGENTS.md,
-.claude/skills/duzman-conventions/SKILL.md,
-docs/AGENT_PROTOCOL.md, docs/REVIEW_PROTOCOL.md (отсылка к
-policy и запрет на исполнение non-ACTIVE документов),
-docs/ARCHITECTURE.md, README.md (bump TZ-привязки по 0.4.6).
-
-Что НЕ изменилось: стек технологий, схема БД, метрики,
-шаблоны, hard caps из раздела 0.2, граница этапа А/Б,
-AlertGate логика, дефолт cooldown_hours, форматы Issue/PR,
-шаблон спеки Приложения Г, четыре вердикта reviewer-agent,
-роли агентов и forbidden actions из Приложения Ж и категории
-действий из Приложения З.
 
 ---
 
@@ -391,69 +360,6 @@ TZ на момент их создания и несущие в шапке ил�
 docs/archive/TZ_vX.Y.md. Откат — это новый MINOR или MAJOR
 бамп с явным указанием причины.
 
-0.4.8. Статусы документации
-
-Каждый operational документ в репозитории имеет один из пяти
-статусов. Канонический документ остаётся только один —
-docs/TZ.md в main (см. 0.4.1); статус CANONICAL отдельным
-значением не вводится, чтобы избежать дублирования.
-
-Статусы:
-
-- ACTIVE — актуальная рабочая инструкция, синхронизированная
-  с текущей версией docs/TZ.md. По умолчанию все живые
-  документы (AGENTS.md, SKILL.md, AGENT_PROTOCOL.md,
-  REVIEW_PROTOCOL.md, ARCHITECTURE.md, README.md) считаются
-  ACTIVE, если не помечены иначе.
-- IMPLEMENTED — спека или задача, которая выполнена и
-  сохранена для истории. Не используется как текущая
-  инструкция. Применяется к docs/specs/* после merge
-  соответствующего PR.
-- SUPERSEDED — документ заменён более новой версией. Не
-  используется как operational guidance. В шапке документа
-  обязательна ссылка superseded_by на актуальный документ.
-- ARCHIVED — исторический snapshot, только для audit.
-  Применяется ко всему содержимому docs/archive/* по
-  умолчанию. Не используется как operational guidance ни при
-  каких обстоятельствах.
-- DRAFT — черновик. Не исполняется без явного approval
-  Operator-а.
-
-Правила применения:
-
-1. docs/archive/* всегда ARCHIVED и никогда не является
-   operational guidance.
-2. docs/specs/* — ACTIVE только пока связанный Issue открыт
-   или PR не смержен. После merge — IMPLEMENTED. После замены
-   новой спекой — SUPERSEDED с ссылкой superseded_by.
-3. AGENTS.md, SKILL.md, AGENT_PROTOCOL.md,
-   REVIEW_PROTOCOL.md, ARCHITECTURE.md, README.md — ACTIVE
-   по умолчанию. При расхождении с docs/TZ.md — выигрывает
-   docs/TZ.md, расхождение фиксируется ближайшим PR
-   (см. 0.4.5).
-4. Агент-исполнитель (Claude Code, Codex CLI) не использует
-   документ статуса SUPERSEDED, ARCHIVED или DRAFT как
-   инструкцию к исполнению, даже если в нём есть формально
-   подходящая спека. Если для задачи нужен документ
-   не-ACTIVE статуса — задача эскалируется Operator-у.
-5. Reviewer-agent при ревью PR проверяет, что PR не опирается
-   на документы статуса SUPERSEDED, ARCHIVED или DRAFT. Если
-   опирается — вердикт NEEDS_TZ_UPDATE.
-
-Маркировка:
-
-- ARCHIVED не требует явной шапки в файле — статус следует из
-  расположения в docs/archive/
-- IMPLEMENTED, SUPERSEDED, DRAFT — рекомендуется явная шапка
-  в начале документа. Формат шапки не нормируется в этом
-  разделе; конкретный формат YAML-header вводится отдельной
-  задачей при необходимости
-- Массовая классификация существующих docs/specs/* —
-  отдельный follow-up. До его выполнения существующие спеки
-  считаются ACTIVE, если связаны с открытым Issue или не
-  смерженным PR, и IMPLEMENTED — после merge
-  соответствующего PR
-
 ---
 
 ### 0.5. GitHub как транспорт между агентами
@@ -493,7 +399,7 @@ docs/TZ.md в main (см. 0.4.1); статус CANONICAL отдельным
 
 Этот документ — техническое задание на этап А проекта Duzman, персонального инструмента мониторинга крипто-метрик. Документ описывает что строится, как оно работает, из каких компонентов состоит, и в какой последовательности реализуется.
 
-Версия 1.9 вводит documentation status policy. Включает роль Claude MCP и все формализации и уточнения версий 1.3 — 1.8.
+Версия 1.8 вводит роль Claude MCP — Claude web сессия с включённым GitHub Duzman MCP connector. Включает все формализации и уточнения версий 1.3 — 1.7.
 
 Целевая аудитория документа:
 
@@ -1656,7 +1562,7 @@ git checkout -- <file>  # откатить один файл
 
 ### Е.2. Источник правды
 
-Единственный источник правды — текущая версия ТЗ (на момент 22 мая 2026 это v1.9, файл `docs/TZ.md` в репозитории).
+Единственный источник правды — текущая версия ТЗ (на момент 22 мая 2026 это v1.8, файл `docs/TZ.md` в репозитории).
 
 Все агенты при старте задачи читают `docs/TZ.md`. Подробный change-control процесс описан в разделе 0.4. Отклонения от ТЗ не допускаются (см. раздел 0.4).
 
@@ -2000,7 +1906,7 @@ Reviewer-agent — отдельная абстрактная роль (см. Ж.
 
 ## Заключение
 
-Версия 1.9 вводит documentation status policy и сохраняет целевую workflow-модель v1.8: Codex/Claude Code writes and pushes the feature branch, Claude MCP opens and comments PR, Operator merges. Включает все формализации и уточнения версий 1.3 — 1.8.
+Версия 1.8 вводит роль Claude MCP и фиксирует целевую workflow-модель: Codex/Claude Code writes and pushes the feature branch, Claude MCP opens and comments PR, Operator merges. Включает все формализации и уточнения версий 1.3 — 1.7.
 
 После завершения этапа А и периода эксплуатации не менее 30 дней принимается решение о переходе к этапу Б.
 
@@ -2017,4 +1923,3 @@ Reviewer-agent — отдельная абстрактная роль (см. Ж.
 | 1.6 | 18 мая 2026 | Перед началом реализации Спеки 4 дня 6 (AlertGate). Раздел 4.6 и 7.7 уточнены: дефолт `cooldown_hours = 2 часа` реализуется в Pydantic-модели `PatternDefinition` (`src/duzman/patterns/models.py`) на этапе загрузки конфигурации, AlertGate собственного fallback не имеет. Других изменений нет |
 | 1.7 | 19 мая 2026 | Формализация GitHub-based multi-agent workflow. Раздел 0.4 переписан как change-control. Добавлен раздел 0.5 (GitHub как транспорт между агентами). Приложение Г расширено до 8 полей (добавлена "Зона спецификации"). Приложение Е обновлено под Issue/PR workflow. Добавлено Приложение Ж (роли и forbidden actions, четыре вердикта reviewer-agent). Синхронные апдейты AGENTS.md и .claude/skills/duzman-conventions/SKILL.md. Docs-only, продуктовые контракты не затронуты |
 | 1.8 | 22 мая 2026 | Введена роль Claude MCP. Раздел 0.5 дополнен. Приложение Е.1 дополнено. Приложение Ж: добавлен Ж.1.1, добавлена строка в Ж.2, добавлен Ж.5. Расширение workflow audit: в 0.4.5 добавлен audit requirement против documentation drift, Ж.1.1 явно разрешает Claude MCP открывать PR из уже запушенной executor-owned ветки. Добавлено Приложение З (категории действий: implementation / coordination / authority). Синхронные апдейты AGENTS.md, SKILL.md, docs/AGENT_PROTOCOL.md, docs/REVIEW_PROTOCOL.md, docs/ARCHITECTURE.md, README.md (bump TZ-привязки по 0.4.6). Docs-only, продуктовые контракты не затронуты |
-| 1.9 | 22 мая 2026 | Введена documentation status policy. В разделе 0.4 добавлен подраздел 0.4.8 с пятью статусами (ACTIVE, IMPLEMENTED, SUPERSEDED, ARCHIVED, DRAFT) и правилами их применения. Синхронные апдейты AGENTS.md, SKILL.md, docs/AGENT_PROTOCOL.md, docs/REVIEW_PROTOCOL.md. docs/ARCHITECTURE.md и README.md обновлены по 0.4.6. Архив docs/archive/TZ_v1.8.md создан как побайтная копия v1.8. Docs-only, продуктовые контракты не затронуты. |
