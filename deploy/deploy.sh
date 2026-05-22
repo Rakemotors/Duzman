@@ -29,6 +29,21 @@ EXCLUDES=(
   "*.pyc"
 )
 
+CONTAMINATION_MARKERS=(
+  ".ssh"
+  ".npm"
+  ".cache"
+  ".local"
+  ".config"
+  ".claude"
+  ".bash_history"
+  ".bashrc"
+  ".profile"
+  ".lesshst"
+  ".gitconfig"
+  ".claude.json"
+)
+
 usage() {
   cat <<'EOF'
 Usage: deploy/deploy.sh [--apply | --dry-run] [--source SRC] [--target TGT]
@@ -51,6 +66,44 @@ usage_error() {
 preflight_error() {
   printf 'Pre-flight failed: %s\n' "$1" >&2
   exit "$EXIT_PREFLIGHT"
+}
+
+detect_contaminated_target() {
+  local marker
+
+  DETECTED_CONTAMINATION=()
+  [[ -d "$TARGET" ]] || return
+
+  for marker in "${CONTAMINATION_MARKERS[@]}"; do
+    if [[ -e "${TARGET%/}/$marker" || -L "${TARGET%/}/$marker" ]]; then
+      DETECTED_CONTAMINATION+=("$marker")
+    fi
+  done
+}
+
+print_contamination_markers() {
+  local marker
+
+  printf 'Detected top-level target markers:\n' >&2
+  for marker in "${DETECTED_CONTAMINATION[@]}"; do
+    printf '  - %s\n' "$marker" >&2
+  done
+}
+
+check_target_contamination() {
+  detect_contaminated_target
+  ((${#DETECTED_CONTAMINATION[@]} > 0)) || return
+
+  if ((APPLY_REQUESTED == 1)); then
+    printf 'Pre-flight failed: target is not a clean deploy-only directory: %s\n' "$TARGET" >&2
+    print_contamination_markers
+    printf 'Manually back up and recreate the target before running --apply.\n' >&2
+    exit "$EXIT_PREFLIGHT"
+  fi
+
+  printf 'WARNING: target is not a clean deploy-only directory: %s\n' "$TARGET" >&2
+  print_contamination_markers
+  printf 'WARNING: dry-run continues for information only; --apply will refuse this target.\n' >&2
 }
 
 print_summary() {
@@ -190,6 +243,7 @@ if [[ ! -d "$TARGET" ]]; then
   fi
 fi
 
+check_target_contamination
 print_summary
 
 RSYNC_ARGS=(-a --delete)
