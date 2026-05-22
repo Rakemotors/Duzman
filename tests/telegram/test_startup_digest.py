@@ -1,5 +1,5 @@
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import select
@@ -26,9 +26,10 @@ async def session() -> AsyncIterator[AsyncSession]:
 @pytest.mark.asyncio
 async def test_startup_digest_sends_and_marks_alerts(session: AsyncSession) -> None:
     """Startup digest should mark sent alerts to avoid restart duplicates."""
+    alert_ts = datetime.now(UTC) - timedelta(hours=1)
     session.add(
         PatternTrigger(
-            ts=datetime(2026, 5, 20, 12, 0, tzinfo=UTC),
+            ts=alert_ts,
             pattern_name="rsi_overheated",
             asset="BTC",
             severity="WARNING",
