@@ -27,6 +27,14 @@ EXCLUDES=(
   ".env.*"
   "logs/"
   "*.pyc"
+  ".bashrc"
+  ".profile"
+  ".bash_logout"
+  ".gitconfig"
+  ".claude/"
+  ".codex/"
+  ".agents/"
+  "backups/"
 )
 
 CONTAMINATION_MARKERS=(
@@ -42,6 +50,17 @@ CONTAMINATION_MARKERS=(
   ".lesshst"
   ".gitconfig"
   ".claude.json"
+)
+
+SOURCE_CONTAMINATION_MARKERS=(
+  ".bashrc"
+  ".profile"
+  ".bash_logout"
+  ".gitconfig"
+  ".claude/"
+  ".codex/"
+  ".agents/"
+  "backups/"
 )
 
 usage() {
@@ -104,6 +123,32 @@ check_target_contamination() {
   printf 'WARNING: target is not a clean deploy-only directory: %s\n' "$TARGET" >&2
   print_contamination_markers
   printf 'WARNING: dry-run continues for information only; --apply will refuse this target.\n' >&2
+}
+
+detect_source_contamination() {
+  local marker
+
+  DETECTED_SOURCE_CONTAMINATION=()
+  for marker in "${SOURCE_CONTAMINATION_MARKERS[@]}"; do
+    if [[ -e "${SOURCE%/}/$marker" || -L "${SOURCE%/}/$marker" ]]; then
+      DETECTED_SOURCE_CONTAMINATION+=("$marker")
+    fi
+  done
+}
+
+check_source_contamination() {
+  local marker
+
+  detect_source_contamination
+  ((${#DETECTED_SOURCE_CONTAMINATION[@]} > 0)) || return
+
+  printf 'WARNING: source contains shell, agent, or workspace artifacts: %s\n' "$SOURCE" >&2
+  printf 'Detected top-level source markers:\n' >&2
+  for marker in "${DETECTED_SOURCE_CONTAMINATION[@]}"; do
+    printf '  - %s\n' "$marker" >&2
+  done
+  printf 'WARNING: these source markers are excluded from rsync and will not be copied.\n' >&2
+  printf 'WARNING: source cleanup is manual; deploy continues without modifying the source.\n' >&2
 }
 
 print_summary() {
@@ -220,6 +265,8 @@ fi
 [[ -f "${SOURCE%/}/pyproject.toml" ]] ||
   preflight_error "source does not look like a Duzman repo; pyproject.toml is missing: $SOURCE"
 command -v rsync >/dev/null 2>&1 || preflight_error "rsync is not available."
+
+check_source_contamination
 
 if ((APPLY_REQUESTED == 1 && EUID != 0)); then
   preflight_error "--apply must run as root before rsync can change ownership."
