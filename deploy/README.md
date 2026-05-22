@@ -90,3 +90,39 @@ to `600`, and set its owner to `duzman:duzman`.
 
 Systemd units, the local health service, and backups are handled by later Day
 9B through Day 9D work, not by this script.
+
+## Venv bootstrap
+
+This script bootstraps the production venv at `/opt/duzman/.venv`.
+
+Step 0, mandatory if `/opt/duzman` is not yet at latest main:
+
+```bash
+sudo bash deploy/deploy.sh --apply
+```
+
+Step 1:
+
+```bash
+sudo bash deploy/bootstrap_venv.sh
+```
+
+If the script reports `venv at /opt/duzman/.venv is valid; nothing to do`,
+bootstrap is done. If it reports
+`existing venv at /opt/duzman/.venv is invalid; rerun with --recreate`, run
+Step 2.
+
+Step 2, for an invalid existing venv or after a deploy refresh:
+
+```bash
+sudo bash deploy/bootstrap_venv.sh --recreate
+```
+
+Do not manually `rm -rf /opt/duzman/.venv`; always use `--recreate`. Do not
+manually clean `/opt/duzman/.cache`. If it appears after bootstrap, that is a
+regression and needs a new issue.
+
+The script refuses to run if `/opt/duzman` is missing Day 9B or Day 9C.1
+runtime files; run Step 0 first.
+
+The success indicator is the final line `bootstrap_venv: success`.
