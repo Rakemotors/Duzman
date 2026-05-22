@@ -31,6 +31,11 @@ exclude list before rsync. Rsync uses archive mode with delete handling and
 excludes Git metadata, virtual environments, Python/cache artifacts, logs, and
 `.env` files.
 
+The source working tree can also contain shell, agent, and workspace artifacts
+that do not belong in production. Rsync excludes `.bashrc`, `.profile`,
+`.bash_logout`, `.gitconfig`, `.claude/`, `.codex/`, `.agents/`, and
+`backups/` from `/opt/duzman`.
+
 Apply mode requires root before rsync starts. If the target does not yet exist,
 apply mode creates it and sets its owner to `duzman:duzman`. After a successful
 apply rsync, it sets deployed target ownership to `duzman:duzman` while leaving
@@ -40,6 +45,16 @@ After rsync, dry-run and apply mode both inspect `<target>/.env` only for
 existence, non-empty size, permissions, and owner. Missing or mismatched `.env`
 state is printed as warnings and does not turn a successful rsync into a
 failure.
+
+### Source contamination warning
+
+Before target handling, the script checks the source top level for the excluded
+shell, agent, and workspace entries above. It prints a warning if any are
+present, then continues in both dry-run and apply mode because those entries are
+already excluded from rsync.
+
+The script does not modify, delete, or attempt to clean the source. Source
+remediation is the Operator's responsibility and is separate from deploy.
 
 ## Contaminated targets
 
