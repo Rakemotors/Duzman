@@ -169,7 +169,7 @@ Rollback if the first start fails:
 sudo systemctl stop duzman
 sudo journalctl -u duzman-health -n 100 --no-pager
 sudo journalctl -u duzman-scheduler -n 100 --no-pager
-sudo systemctl disable duzman duzman-health duzman-scheduler
+sudo systemctl disable duzman
 ```
 
 The disable command is optional when reverting the install. `systemctl stop

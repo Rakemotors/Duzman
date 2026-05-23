@@ -2,7 +2,7 @@
 Description=Duzman umbrella service
 Wants=network-online.target duzman-health.service duzman-scheduler.service
 BindsTo=duzman-health.service duzman-scheduler.service
-After=network-online.target
+After=network-online.target duzman-health.service duzman-scheduler.service
 
 [Service]
 Type=oneshot

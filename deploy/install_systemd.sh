@@ -129,12 +129,6 @@ check_unit_sources() {
   done
 }
 
-run_import_probe() {
-  sudo -u "$SERVICE_USER" bash -c \
-    'cd "$0" && exec "$1" -c "import duzman.runtime.run_scheduler, duzman.runtime.run_health_server"' \
-    "$TARGET_DIR" "$TARGET_DIR/.venv/bin/python"
-}
-
 print_plan() {
   local unit_file
 
@@ -145,7 +139,7 @@ print_plan() {
   printf '  chmod 644 installed unit files\n'
   printf '  chown root:root installed unit files\n'
   printf '  systemctl daemon-reload\n'
-  printf '  systemctl enable duzman.service duzman-health.service duzman-scheduler.service\n'
+  printf '  systemctl enable duzman.service\n'
   printf '  no units will be started by this script\n'
 }
 
@@ -189,7 +183,7 @@ enable_units() {
     return
   fi
 
-  systemctl enable duzman.service duzman-health.service duzman-scheduler.service
+  systemctl enable duzman.service
 }
 
 main() {
@@ -200,7 +194,6 @@ main() {
   run_step check_env_file_stat_only check_env_file_stat_only
   run_step check_systemctl_available check_systemctl_available
   run_step check_unit_sources check_unit_sources
-  run_step run_import_probe run_import_probe
   run_step copy_unit_files copy_unit_files
   run_step set_unit_file_ownership set_unit_file_ownership
   run_step reload_systemd reload_systemd
