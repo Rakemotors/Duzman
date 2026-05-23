@@ -1,0 +1,10 @@
+[Unit]
+Description=Weekly OneDrive backup timer
+
+[Timer]
+OnCalendar=Sun *-*-* 03:00:00 UTC
+Persistent=true
+Unit=duzman-onedrive-backup.service
+
+[Install]
+WantedBy=timers.target
