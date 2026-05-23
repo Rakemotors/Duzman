@@ -8,7 +8,8 @@ TARGET_DIR=/opt/duzman
 SERVICE_USER=duzman
 SERVICE_GROUP=duzman
 SYSTEMD_DIR=/etc/systemd/system
-RCLONE_CONFIG_DIR="$TARGET_DIR/.config/rclone"
+RCLONE_CONFIG_ROOT=/etc/duzman
+RCLONE_CONFIG_DIR="$RCLONE_CONFIG_ROOT/rclone"
 RCLONE_CONFIG_PATH="$RCLONE_CONFIG_DIR/rclone.conf"
 UNIT_SOURCE_DIR=""
 UNIT_FILES=(
@@ -55,7 +56,7 @@ check_rclone_binary() {
 }
 
 create_config_dir() {
-  install -d -o "$SERVICE_USER" -g "$SERVICE_GROUP" -m 700 "$TARGET_DIR/.config"
+  install -d -o root -g root -m 755 "$RCLONE_CONFIG_ROOT"
   install -d -o "$SERVICE_USER" -g "$SERVICE_GROUP" -m 700 "$RCLONE_CONFIG_DIR"
 }
 

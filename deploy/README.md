@@ -30,7 +30,7 @@ not from the current working directory. It prints the source, target, mode, and
 exclude list before rsync. Rsync uses archive mode with delete handling and
 excludes Git metadata, virtual environments, Python/cache artifacts, logs, and
 `.env` files. Runtime state that must persist across deploys is also excluded,
-including `.config/`, `.venv/`, and `backups/`.
+including `.venv/` and `backups/`.
 
 The source working tree can also contain shell, agent, and workspace artifacts
 that do not belong in production. Rsync excludes `.bashrc`, `.profile`,
@@ -63,11 +63,8 @@ Before rsync, the script checks only the top-level entries in the target for
 home-directory or agent markers that do not belong in a deploy-only directory:
 `.ssh`, `.npm`, `.cache`, `.local`, `.claude`, `.bash_history`, `.bashrc`,
 `.profile`, `.lesshst`, `.gitconfig`, and `.claude.json`.
-
-`.config/` is allowed in the production target because Day 10B stores
-`/opt/duzman/.config/rclone/rclone.conf` there for rclone OAuth token refresh.
-The directory is excluded from rsync, so deploy never deletes or overwrites
-that runtime config.
+Top-level `.config` remains a contamination marker; deploy-managed
+`/opt/duzman` must not store rclone OAuth config.
 
 Dry-run mode prints a warning with any detected marker names and continues so
 the Operator can inspect the rsync plan. Apply mode refuses the target before
@@ -289,11 +286,36 @@ after the daily 02:30 UTC backup.
      `sudo bash /opt/duzman/deploy/deploy.sh --apply` before the first OAuth
      config transfer when possible.
    - `scp ~/.config/rclone/rclone.conf vps:/tmp/rclone.conf.new`
-   - On VPS: `sudo mv /tmp/rclone.conf.new /opt/duzman/.config/rclone/rclone.conf`
-   - `sudo chown duzman:duzman /opt/duzman/.config/rclone/rclone.conf`
-   - `sudo chmod 600 /opt/duzman/.config/rclone/rclone.conf`
-   - If `rclone.conf` already exists from an earlier OAuth run, deploy is still
-     safe: `deploy/deploy.sh` excludes `.config/` and preserves the file.
+   - On VPS: `sudo install -d -o root -g root -m 755 /etc/duzman`
+   - `sudo install -d -o duzman -g duzman -m 700 /etc/duzman/rclone`
+   - `sudo mv /tmp/rclone.conf.new /etc/duzman/rclone/rclone.conf`
+   - `sudo chown duzman:duzman /etc/duzman/rclone/rclone.conf`
+   - `sudo chmod 600 /etc/duzman/rclone/rclone.conf`
+
+   If an earlier pre-merge Day 10B install attempt already created
+   `/opt/duzman/.config/rclone/rclone.conf`, migrate it before running
+   `deploy.sh --apply`:
+
+   ```bash
+   sudo install -d -o root -g root -m 755 /etc/duzman
+   sudo install -d -o duzman -g duzman -m 700 /etc/duzman/rclone
+   sudo mv /opt/duzman/.config/rclone/rclone.conf /etc/duzman/rclone/rclone.conf
+   sudo chown duzman:duzman /etc/duzman/rclone/rclone.conf
+   sudo chmod 600 /etc/duzman/rclone/rclone.conf
+   sudo rm -rf /opt/duzman/.config
+   ```
+
+   Then verify before `deploy.sh --apply`:
+
+   ```bash
+   ls /opt/duzman/.config 2>/dev/null && echo PROBLEM || echo ok
+   ```
+
+   Expected output:
+
+   ```text
+   ok
+   ```
 
 4. **Add env vars to `/opt/duzman/.env`.**
    - Verify `TELEGRAM_CHAT_ID_SYSTEM` is set (first shell consumer in Day 10B).
@@ -303,7 +325,7 @@ after the daily 02:30 UTC backup.
    - `sudo bash /opt/duzman/deploy/install_onedrive_backup.sh`
 
 6. **Smoke test.**
-   - As root: `sudo -u duzman RCLONE_CONFIG=/opt/duzman/.config/rclone/rclone.conf rclone lsd onedrive:`
+   - As root: `sudo -u duzman RCLONE_CONFIG=/etc/duzman/rclone/rclone.conf rclone lsd onedrive:`
    - Manual oneshot: `sudo systemctl start duzman-onedrive-backup.service`
    - Check status: `systemctl status duzman-onedrive-backup.service`
    - Check Telegram backup channel for success message.
@@ -313,10 +335,13 @@ after the daily 02:30 UTC backup.
 
 rclone OneDrive backend refreshes OAuth access tokens periodically
 and persists the refreshed token back to rclone.conf. The systemd
-service unit grants write access to /opt/duzman/.config/rclone to
+service unit grants write access to /etc/duzman/rclone to
 allow this. The rclone.conf file remains mode 600 owned by duzman.
 If you see unexpectedly frequent modifications to rclone.conf,
 investigate.
+
+`/opt/duzman` remains the deploy-managed application tree and must not store
+rclone OAuth config.
 
 ### Restore from OneDrive
 

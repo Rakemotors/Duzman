@@ -10,14 +10,14 @@ WorkingDirectory=/opt/duzman
 User=duzman
 Group=duzman
 EnvironmentFile=/opt/duzman/.env
-Environment=RCLONE_CONFIG=/opt/duzman/.config/rclone/rclone.conf
+Environment=RCLONE_CONFIG=/etc/duzman/rclone/rclone.conf
 ExecStart=/opt/duzman/deploy/onedrive_upload.sh
 
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
-ReadWritePaths=/opt/duzman/backups /opt/duzman/.config/rclone
+ReadWritePaths=/opt/duzman/backups /etc/duzman/rclone
 
 [Install]
 WantedBy=multi-user.target

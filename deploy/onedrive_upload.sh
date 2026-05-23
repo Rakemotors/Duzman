@@ -5,7 +5,7 @@
 set -euo pipefail
 umask 077
 
-RCLONE_CONFIG_PATH="/opt/duzman/.config/rclone/rclone.conf"
+RCLONE_CONFIG_PATH="/etc/duzman/rclone/rclone.conf"
 RCLONE_REMOTE="onedrive"
 RCLONE_REMOTE_PATH="Duzman/Backups"
 BACKUPS_DIR="/opt/duzman/backups"
