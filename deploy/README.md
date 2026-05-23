@@ -29,7 +29,8 @@ The script resolves the default source from the location of `deploy/deploy.sh`,
 not from the current working directory. It prints the source, target, mode, and
 exclude list before rsync. Rsync uses archive mode with delete handling and
 excludes Git metadata, virtual environments, Python/cache artifacts, logs, and
-`.env` files.
+`.env` files. Runtime state that must persist across deploys is also excluded,
+including `.config/`, `.venv/`, and `backups/`.
 
 The source working tree can also contain shell, agent, and workspace artifacts
 that do not belong in production. Rsync excludes `.bashrc`, `.profile`,
@@ -60,8 +61,13 @@ remediation is the Operator's responsibility and is separate from deploy.
 
 Before rsync, the script checks only the top-level entries in the target for
 home-directory or agent markers that do not belong in a deploy-only directory:
-`.ssh`, `.npm`, `.cache`, `.local`, `.config`, `.claude`, `.bash_history`,
-`.bashrc`, `.profile`, `.lesshst`, `.gitconfig`, and `.claude.json`.
+`.ssh`, `.npm`, `.cache`, `.local`, `.claude`, `.bash_history`, `.bashrc`,
+`.profile`, `.lesshst`, `.gitconfig`, and `.claude.json`.
+
+`.config/` is allowed in the production target because Day 10B stores
+`/opt/duzman/.config/rclone/rclone.conf` there for rclone OAuth token refresh.
+The directory is excluded from rsync, so deploy never deletes or overwrites
+that runtime config.
 
 Dry-run mode prints a warning with any detected marker names and continues so
 the Operator can inspect the rsync plan. Apply mode refuses the target before
@@ -279,10 +285,15 @@ after the daily 02:30 UTC backup.
    - Verify with `rclone lsd onedrive:` locally.
 
 3. **Transfer config to VPS.**
+   - Run `sudo bash /opt/duzman/deploy/deploy.sh --dry-run` and then
+     `sudo bash /opt/duzman/deploy/deploy.sh --apply` before the first OAuth
+     config transfer when possible.
    - `scp ~/.config/rclone/rclone.conf vps:/tmp/rclone.conf.new`
    - On VPS: `sudo mv /tmp/rclone.conf.new /opt/duzman/.config/rclone/rclone.conf`
    - `sudo chown duzman:duzman /opt/duzman/.config/rclone/rclone.conf`
    - `sudo chmod 600 /opt/duzman/.config/rclone/rclone.conf`
+   - If `rclone.conf` already exists from an earlier OAuth run, deploy is still
+     safe: `deploy/deploy.sh` excludes `.config/` and preserves the file.
 
 4. **Add env vars to `/opt/duzman/.env`.**
    - Verify `TELEGRAM_CHAT_ID_SYSTEM` is set (first shell consumer in Day 10B).
