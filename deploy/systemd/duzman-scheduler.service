@@ -1,0 +1,23 @@
+[Unit]
+Description=Duzman runtime scheduler
+After=network-online.target
+PartOf=duzman.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/duzman
+User=duzman
+Group=duzman
+EnvironmentFile=/opt/duzman/.env
+Environment=PIP_CACHE_DIR=/tmp/duzman_pip_cache_scheduler
+ExecStart=/opt/duzman/.venv/bin/python -m duzman.runtime.run_scheduler
+Restart=on-failure
+RestartSec=10s
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/duzman
+
+[Install]
+WantedBy=multi-user.target
