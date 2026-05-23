@@ -20,7 +20,8 @@ canonical location for:
 
     docs/process/
         README.md                 -- this file: index and archival rules
-        REVIEW_PROTOCOL.md        -- review and runbook discipline
+        REVIEW_PROTOCOL.md        -- review and runbook discipline,
+                                     spec durability rule
         reviews/                  -- archived review logs
 
 Future additions (lessons/, postmortems/, etc.) should be added here

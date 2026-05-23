@@ -1,7 +1,8 @@
 # REVIEW_PROTOCOL
 
-Project-wide rules for reviewing pull requests and conducting
-production verification runbooks.
+Project-wide rules for reviewing pull requests, conducting
+production verification runbooks, and preserving important specs in
+durable project documentation.
 
 ## Gate policy for operational PRs
 
@@ -18,6 +19,25 @@ Required flow:
    the PR be merged.
 
 Docs-only and test-only PRs may follow normal APPROVE → merge.
+
+## Spec durability rule
+
+Important implementation specs, review protocols, operational
+runbooks, and process decisions must live in durable project
+documentation, not only in chat.
+
+Durable locations:
+
+- GitHub Issue body.
+- Pull Request description.
+- `docs/specs/` for approved standalone specs.
+- `docs/process/` for project-wide process rules and archived review
+  logs.
+
+Chat-only specs are not durable documentation. If a chat message
+contains requirements that future reviewers, agents, or operators
+must rely on, those requirements must be copied into one of the
+durable locations above before implementation or merge.
 
 ## No hotfix directly on PR branch during VPS runbook
 
