@@ -17,6 +17,8 @@ UNIT_FILES=(
   "duzman.service"
   "duzman-health.service"
   "duzman-scheduler.service"
+  "duzman-backup.service"
+  "duzman-backup.timer"
 )
 
 trap report_failed_step ERR
@@ -97,6 +99,17 @@ check_runtime_layout() {
     step_error "health runtime entrypoint is missing under $TARGET_DIR"
   [[ -f "$TARGET_DIR/src/duzman/runtime/run_scheduler.py" ]] ||
     step_error "scheduler runtime entrypoint is missing under $TARGET_DIR"
+
+  if [[ ! -d "$TARGET_DIR/backups" ]]; then
+    mkdir -- "$TARGET_DIR/backups"
+    chown "$SERVICE_USER:$SERVICE_GROUP" -- "$TARGET_DIR/backups"
+    return
+  fi
+
+  local backup_owner
+  backup_owner="$(stat -c '%U:%G' -- "$TARGET_DIR/backups")"
+  [[ "$backup_owner" == "$SERVICE_USER:$SERVICE_GROUP" ]] ||
+    step_error "backup directory owner is $backup_owner; expected $SERVICE_USER:$SERVICE_GROUP"
 }
 
 check_env_file_stat_only() {
@@ -140,6 +153,7 @@ print_plan() {
   printf '  chown root:root installed unit files\n'
   printf '  systemctl daemon-reload\n'
   printf '  systemctl enable duzman.service\n'
+  printf '  systemctl enable duzman-backup.timer (timer only; service is static)\n'
   printf '  no units will be started by this script\n'
 }
 
@@ -183,7 +197,7 @@ enable_units() {
     return
   fi
 
-  systemctl enable duzman.service
+  systemctl enable duzman.service duzman-backup.timer
 }
 
 main() {

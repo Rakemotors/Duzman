@@ -138,7 +138,8 @@ Review planned actions without writing files or calling systemctl:
 sudo bash deploy/install_systemd.sh --dry-run
 ```
 
-Install and enable the units. This does not start any service:
+Install and enable the runtime umbrella and backup timer. This does not start
+any service:
 
 ```bash
 sudo bash deploy/install_systemd.sh
@@ -154,6 +155,7 @@ Verify runtime state:
 
 ```bash
 sudo systemctl status duzman duzman-health duzman-scheduler
+sudo systemctl list-timers duzman-backup.timer --no-pager
 curl -fsS http://127.0.0.1:8080/health
 sudo journalctl -u duzman-scheduler -n 50 --no-pager
 sudo journalctl -u duzman-health -n 50 --no-pager
@@ -179,3 +181,74 @@ duzman` stops both children through the umbrella relationship.
 responsible for keeping `.env` correct. The installer overwrites the old stub
 `duzman.service` silently. If `/opt/duzman/.venv` is missing or invalid, install
 fails during preflight before any partial install.
+
+## Backup and restore
+
+Backup runs daily at 02:30 UTC via `duzman-backup.timer`. Encrypted file is
+delivered to the configured Telegram backup channel and kept locally (last 7)
+in `/opt/duzman/backups`.
+
+Required env (in `/opt/duzman/.env`, mode 600, owner `duzman:duzman`):
+
+- `BACKUP_GPG_PASSPHRASE` (canonical copy in Bitwarden)
+- `TELEGRAM_CHAT_ID_BACKUP`
+
+Manual trigger:
+
+```bash
+sudo systemctl start duzman-backup.service
+```
+
+Status:
+
+```bash
+sudo systemctl status duzman-backup.service
+sudo journalctl -u duzman-backup.service -n 100 --no-pager
+sudo systemctl list-timers duzman-backup.timer --no-pager
+ls -la /opt/duzman/backups/
+```
+
+### Restore from backup
+
+Recovery is manual. Target RTO 30 minutes. Get the encrypted backup from one of:
+Telegram backup channel, `/opt/duzman/backups`, OneDrive (Day 9E when
+available).
+
+Decrypt (passphrase from Bitwarden, NOT from `.env` in a recovery scenario
+where `.env` itself may be the lost asset):
+
+```bash
+gpg --decrypt --output backup.tar.gz duzman-YYYYMMDD-HHMMSS.tar.gz.gpg
+```
+
+Extract:
+
+```bash
+mkdir restore && tar -xzf backup.tar.gz -C restore
+```
+
+Verify contents:
+
+```bash
+ls -la restore/
+head restore/db.sql
+```
+
+Restore database (DESTRUCTIVE for current data in the backed-up tables):
+
+```bash
+sudo -u postgres psql duzman < restore/db.sql
+```
+
+Verify row counts:
+
+```bash
+sudo -u postgres psql duzman -c "SELECT
+  (SELECT count(*) FROM pattern_triggers) AS pattern_triggers,
+  (SELECT count(*) FROM alert_deliveries) AS alert_deliveries,
+  (SELECT count(*) FROM alembic_version) AS alembic_version;"
+```
+
+Restore configs and `.env` manually as needed from `restore/config/` and
+`restore/.env`. Review `.env` before placing into `/opt/duzman/.env` (it
+contains the backup passphrase itself).
