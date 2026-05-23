@@ -214,7 +214,7 @@ main() {
   run_step enable_units enable_units
 
   if ((DRY_RUN == 0)); then
-    printf 'install_systemd: enabled. Run `sudo systemctl start duzman` to start health + scheduler.\n'
+    printf 'install_systemd: enabled. Run `sudo systemctl start duzman` to start health + scheduler. Backup timer auto-runs daily at 02:30 UTC; verify with `systemctl list-timers duzman-backup.timer`.\n'
   fi
   printf 'install_systemd: success\n'
 }

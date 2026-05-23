@@ -161,22 +161,26 @@ deliver_to_telegram() {
   ts="${ts%.tar.gz.gpg}"
 
   if ((size_bytes <= TELEGRAM_MAX_BYTES)); then
-    if ! curl --retry 2 --retry-delay 5 -fsS \
+    if ! curl --retry 2 --retry-delay 5 -fsS -K - \
       -F document=@"$FINAL_FILE" \
       -F chat_id="$TELEGRAM_CHAT_ID_BACKUP" \
       -F caption="Duzman backup ${ts} (${size_mb}MB)" \
-      "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
-      >/dev/null; then
+      >/dev/null <<EOF
+url = "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument"
+EOF
+    then
       step_error "telegram delivery failed for ${ts}"
     fi
     TELEGRAM_STATUS="document"
   else
-    if ! curl --retry 2 --retry-delay 5 -fsS \
+    if ! curl --retry 2 --retry-delay 5 -fsS -K - \
       -G \
       --data-urlencode "chat_id=${TELEGRAM_CHAT_ID_BACKUP}" \
       --data-urlencode "text=Duzman backup ${ts} skipped Telegram (size=${size_mb}MB > 50MB), local only at ${FINAL_FILE}" \
-      "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-      >/dev/null; then
+      >/dev/null <<EOF
+url = "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage"
+EOF
+    then
       step_error "telegram delivery failed for ${ts}"
     fi
     TELEGRAM_STATUS="size_skipped"
