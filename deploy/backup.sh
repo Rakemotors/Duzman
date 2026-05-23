@@ -131,6 +131,11 @@ create_archive() {
 }
 
 encrypt_archive() {
+  # gpg needs a writable home under the systemd sandbox; /opt/duzman is read-only.
+  export GNUPGHOME="${WORKDIR}/gnupg"
+  mkdir -p "$GNUPGHOME"
+  chmod 700 "$GNUPGHOME"
+
   gpg --batch --yes --passphrase-fd 0 --symmetric --cipher-algo AES256 \
     --output "$PARTIAL_FILE" "$WORKDIR/backup.tar.gz" \
     <<<"$BACKUP_GPG_PASSPHRASE"
