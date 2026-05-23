@@ -1,0 +1,17 @@
+[Unit]
+Description=Duzman daily encrypted backup
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/duzman
+User=duzman
+Group=duzman
+EnvironmentFile=/opt/duzman/.env
+ExecStart=/bin/bash /opt/duzman/deploy/backup.sh
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/duzman/backups
