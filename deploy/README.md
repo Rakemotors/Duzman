@@ -126,3 +126,56 @@ The script refuses to run if `/opt/duzman` is missing Day 9B or Day 9C.1
 runtime files; run Step 0 first.
 
 The success indicator is the final line `bootstrap_venv: success`.
+
+## Systemd install
+
+Prerequisite: `/opt/duzman/.venv` must be valid. Run
+`sudo bash deploy/bootstrap_venv.sh` first if needed.
+
+Review planned actions without writing files or calling systemctl:
+
+```bash
+sudo bash deploy/install_systemd.sh --dry-run
+```
+
+Install and enable the units. This does not start any service:
+
+```bash
+sudo bash deploy/install_systemd.sh
+```
+
+Start both child services through the umbrella:
+
+```bash
+sudo systemctl start duzman
+```
+
+Verify runtime state:
+
+```bash
+sudo systemctl status duzman duzman-health duzman-scheduler
+curl -fsS http://127.0.0.1:8080/health
+sudo journalctl -u duzman-scheduler -n 50 --no-pager
+sudo journalctl -u duzman-health -n 50 --no-pager
+```
+
+The health endpoint should return `{"status":"ok",...}`. Scheduler logs should
+include `scheduler_started jobs_count=N`; health logs should include
+`health_server_started`.
+
+Rollback if the first start fails:
+
+```bash
+sudo systemctl stop duzman
+sudo journalctl -u duzman-health -n 100 --no-pager
+sudo journalctl -u duzman-scheduler -n 100 --no-pager
+sudo systemctl disable duzman duzman-health duzman-scheduler
+```
+
+The disable command is optional when reverting the install. `systemctl stop
+duzman` stops both children through the umbrella relationship.
+
+`install_systemd.sh` does not touch `/opt/duzman/.env`; the Operator is
+responsible for keeping `.env` correct. The installer overwrites the old stub
+`duzman.service` silently. If `/opt/duzman/.venv` is missing or invalid, install
+fails during preflight before any partial install.

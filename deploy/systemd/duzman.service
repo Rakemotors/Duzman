@@ -1,0 +1,13 @@
+[Unit]
+Description=Duzman umbrella service
+Wants=network-online.target duzman-health.service duzman-scheduler.service
+BindsTo=duzman-health.service duzman-scheduler.service
+After=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,23 @@
+[Unit]
+Description=Duzman local health service
+After=network-online.target
+PartOf=duzman.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/duzman
+User=duzman
+Group=duzman
+EnvironmentFile=/opt/duzman/.env
+Environment=PIP_CACHE_DIR=/tmp/duzman_pip_cache_health
+ExecStart=/opt/duzman/.venv/bin/python -m duzman.runtime.run_health_server
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/duzman
+
+[Install]
+WantedBy=multi-user.target
