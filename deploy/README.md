@@ -29,7 +29,8 @@ The script resolves the default source from the location of `deploy/deploy.sh`,
 not from the current working directory. It prints the source, target, mode, and
 exclude list before rsync. Rsync uses archive mode with delete handling and
 excludes Git metadata, virtual environments, Python/cache artifacts, logs, and
-`.env` files.
+`.env` files. Runtime state that must persist across deploys is also excluded,
+including `.venv/` and `backups/`.
 
 The source working tree can also contain shell, agent, and workspace artifacts
 that do not belong in production. Rsync excludes `.bashrc`, `.profile`,
@@ -60,8 +61,10 @@ remediation is the Operator's responsibility and is separate from deploy.
 
 Before rsync, the script checks only the top-level entries in the target for
 home-directory or agent markers that do not belong in a deploy-only directory:
-`.ssh`, `.npm`, `.cache`, `.local`, `.config`, `.claude`, `.bash_history`,
-`.bashrc`, `.profile`, `.lesshst`, `.gitconfig`, and `.claude.json`.
+`.ssh`, `.npm`, `.cache`, `.local`, `.claude`, `.bash_history`, `.bashrc`,
+`.profile`, `.lesshst`, `.gitconfig`, and `.claude.json`.
+Top-level `.config` remains a contamination marker; deploy-managed
+`/opt/duzman` must not store rclone OAuth config.
 
 Dry-run mode prints a warning with any detected marker names and continues so
 the Operator can inspect the rsync plan. Apply mode refuses the target before
@@ -252,3 +255,113 @@ sudo -u postgres psql duzman -c "SELECT
 Restore configs and `.env` manually as needed from `restore/config/` and
 `restore/.env`. Review `.env` before placing into `/opt/duzman/.env` (it
 contains the backup passphrase itself).
+
+## Weekly OneDrive backup
+
+Weekly snapshot of the latest local encrypted daily backup uploaded
+to OneDrive. Independent 12-week remote retention. Runs Sunday 03:00 UTC,
+after the daily 02:30 UTC backup.
+
+### One-time Operator setup
+
+1. **Install rclone binary (upstream pinned).**
+   - Download `rclone-v1.74.2-linux-amd64.zip` from
+     https://github.com/rclone/rclone/releases/tag/v1.74.2
+   - Verify SHA256 against the checksum on the release page.
+   - Unzip; copy `rclone` to `/usr/local/bin/rclone`.
+   - `sudo chown root:root /usr/local/bin/rclone`
+   - `sudo chmod 755 /usr/local/bin/rclone`
+   - Verify: `rclone version` (must start with `rclone v1.74.2`).
+
+2. **Run OAuth flow on a machine with a browser.**
+   - On Operator local machine (not VPS): `rclone config`
+   - Create new remote named `onedrive` of type `onedrive`.
+   - At the scopes prompt, select custom and enter:
+     `Files.ReadWrite,offline_access`
+   - Complete browser OAuth.
+   - Verify with `rclone lsd onedrive:` locally.
+
+3. **Transfer config to VPS.**
+   - Run `sudo bash /opt/duzman/deploy/deploy.sh --dry-run` and then
+     `sudo bash /opt/duzman/deploy/deploy.sh --apply` before the first OAuth
+     config transfer when possible.
+   - `scp ~/.config/rclone/rclone.conf vps:/tmp/rclone.conf.new`
+   - On VPS: `sudo install -d -o root -g root -m 755 /etc/duzman`
+   - `sudo install -d -o duzman -g duzman -m 700 /etc/duzman/rclone`
+   - `sudo mv /tmp/rclone.conf.new /etc/duzman/rclone/rclone.conf`
+   - `sudo chown duzman:duzman /etc/duzman/rclone/rclone.conf`
+   - `sudo chmod 600 /etc/duzman/rclone/rclone.conf`
+
+   If an earlier pre-merge Day 10B install attempt already created
+   `/opt/duzman/.config/rclone/rclone.conf`, migrate it before running
+   `deploy.sh --apply`:
+
+   ```bash
+   sudo install -d -o root -g root -m 755 /etc/duzman
+   sudo install -d -o duzman -g duzman -m 700 /etc/duzman/rclone
+   sudo mv /opt/duzman/.config/rclone/rclone.conf /etc/duzman/rclone/rclone.conf
+   sudo chown duzman:duzman /etc/duzman/rclone/rclone.conf
+   sudo chmod 600 /etc/duzman/rclone/rclone.conf
+   sudo rm -rf /opt/duzman/.config
+   ```
+
+   Then verify before `deploy.sh --apply`:
+
+   ```bash
+   ls /opt/duzman/.config 2>/dev/null && echo PROBLEM || echo ok
+   ```
+
+   Expected output:
+
+   ```text
+   ok
+   ```
+
+4. **Add env vars to `/opt/duzman/.env`.**
+   - Verify `TELEGRAM_CHAT_ID_SYSTEM` is set (first shell consumer in Day 10B).
+   - `TELEGRAM_CHAT_ID_BACKUP` already used by daily backup.
+
+5. **Install systemd units.**
+   - `sudo bash /opt/duzman/deploy/install_onedrive_backup.sh`
+
+6. **Smoke test.**
+   - As root: `sudo -u duzman RCLONE_CONFIG=/etc/duzman/rclone/rclone.conf rclone lsd onedrive:`
+   - Manual oneshot: `sudo systemctl start duzman-onedrive-backup.service`
+   - Check status: `systemctl status duzman-onedrive-backup.service`
+   - Check Telegram backup channel for success message.
+   - Check `/opt/duzman/backups/onedrive_upload_manifest.jsonl` for new entry.
+
+### Token refresh behavior
+
+rclone OneDrive backend refreshes OAuth access tokens periodically
+and persists the refreshed token back to rclone.conf. The systemd
+service unit grants write access to /etc/duzman/rclone to
+allow this. The rclone.conf file remains mode 600 owned by duzman.
+If you see unexpectedly frequent modifications to rclone.conf,
+investigate.
+
+`/opt/duzman` remains the deploy-managed application tree and must not store
+rclone OAuth config.
+
+### Restore from OneDrive
+
+1. Download encrypted backup from OneDrive `/Duzman/Backups/<filename>`.
+2. Decrypt: `gpg --decrypt --output backup.tar.gz backup.tar.gz.gpg` (enter passphrase from Bitwarden).
+3. Extract: `tar xzf backup.tar.gz`.
+4. Restore database: `psql -U duzman_app duzman < dump.sql`.
+5. Restore configs and .env from extracted archive.
+6. Verify row counts per table against pre-restore baseline.
+
+### Reduced OAuth scopes — safety clause
+
+Day 10B targets `Files.ReadWrite` + `offline_access` scopes only. If
+during smoke test rclone operations fail with permission errors,
+STOP. Do NOT re-run OAuth with broader scopes silently. Report the
+exact non-secret error message in the PR thread and let Reviewer
+decide whether scope expansion is appropriate.
+
+### Failure behavior
+
+- Failure marker: `/opt/duzman/backups/.last_onedrive_upload_failed`
+- Failure notification: both `TELEGRAM_CHAT_ID_SYSTEM` and `TELEGRAM_CHAT_ID_BACKUP`
+- Marker is removed automatically on next successful upload.
