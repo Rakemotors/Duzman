@@ -85,3 +85,31 @@ protocol exists to prevent.
   regardless of merge urgency.
 - Operator must redact secrets before pasting any VPS output into
   the PR thread.
+
+## Small Security Fix Track (SSFT)
+
+SSFT applies only to small, isolated security fixes where the diff is
+approximately 10 lines or less, the change is limited to one module plus its
+tests, and the PR does not touch runtime entrypoints, deploy scripts, systemd
+units, backup code, database migrations, secrets handling, or external API
+integration.
+
+An SSFT PR must include a unit test covering the core invariant. Under SSFT,
+post-merge verify-on-prod is acceptable as the rollback gate: merge, deploy,
+verify, then post a `VERIFIED ON PROD` comment, or revert on failure.
+
+SSFT does not apply to any excluded path or behavior listed above. Those PRs
+follow the standard pre-merge operational gate.
+
+## Settings and runtime changes require pre-merge env verification
+
+Lesson from PR #65, PR #68, and the 2026-05-24 incident: when a PR changes
+Settings, runtime entrypoints, or anything that reads `.env` at process start,
+the reviewer must require pre-merge throwaway-venv verification against the
+actual production `.env` contents. The Operator runs that verification on the
+VPS and does not paste secret contents into the PR thread.
+
+Post-merge gate is insufficient for this class of change because a restart
+loop caused by a misaligned Settings schema can echo `.env` values into the
+journal through a Pydantic `ValidationError`. Reference case: PR #68, commit
+`5a252c0`. No secret values are documented here.
