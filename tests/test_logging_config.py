@@ -21,6 +21,12 @@ def test_logging_helper_can_emit_structured_event(caplog):
     assert "value" not in caplog.text
 
 
+def test_configure_logging_suppresses_httpx() -> None:
+    configure_logging()
+
+    assert logging.getLogger("httpx").level == logging.WARNING
+
+
 def test_safe_error_message_bounds_and_flattens_long_errors():
     """Long multi-line errors should be bounded before they reach logs."""
     message = safe_error_message("line one\n" + ("x" * 80), max_length=32)
