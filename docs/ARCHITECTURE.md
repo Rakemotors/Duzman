@@ -123,12 +123,100 @@ Two-phase read-then-write in evaluate (`count_allow_in_window`/`cooldown_hit`, t
 
 pytest, async, моки httpx. Все 268 тестов зелёные на дне 6. Никаких живых API.
 
-### Что НЕ реализовано на конец дня 8
+### Day 9 — Deployment and systemd
+
+Day 9 deployment is documented in `deploy/README.md` and implemented by
+`deploy/deploy.sh`. The deploy script is a manual Operator tool that syncs a
+reviewed repository tree into the production target path named by the script,
+defaults to dry-run, requires explicit `--apply` for changes, excludes Git
+metadata, virtualenvs, caches, logs, backup state, and `.env` files, and does
+not run migrations or systemd commands.
+
+Systemd unit files present in `deploy/systemd/` define the runtime topology:
+`duzman.service` is the umbrella unit, `duzman-health.service` runs
+`duzman.runtime.run_health_server`, and `duzman-scheduler.service` runs
+`duzman.runtime.run_scheduler`. `deploy/install_systemd.sh` installs the
+umbrella, health, scheduler, daily backup service, and daily backup timer, and
+its preflight checks the service environment file by stat only for owner and
+mode `600`.
+
+The runtime units load settings through systemd `EnvironmentFile`. This
+architecture document records the intended unit roles from repository files
+only; it does not assert live service status.
+
+### Day 9D — Encrypted local backup
+
+`deploy/backup.sh` creates local encrypted backups through
+`duzman-backup.service`. The script dumps selected database tables, copies
+configuration inputs and `.env` into a temporary archive, encrypts the archive
+with GPG AES256 using a passphrase sourced from the process environment, sends
+the encrypted result to the configured Telegram backup channel when it is under
+the 50 MB Telegram limit, and applies local retention.
+
+The Day 9D systemd files are `duzman-backup.service` and
+`duzman-backup.timer`; the timer runs daily at 02:30 UTC. Local retention is
+`RETENTION_COUNT=7` in `deploy/backup.sh` and is also described in
+`deploy/README.md` as keeping the last 7 local backups.
+
+Commit `3a23d60` fixed the Day 9D GPG home issue under the systemd sandbox by
+setting `GNUPGHOME` inside the temporary backup workdir before encryption.
+`docs/process/REVIEW_PROTOCOL.md` records the review-process lesson for that
+fix.
+
+### Day 10A and Day 10B — OneDrive weekly backup
+
+The repository does not contain a separate Day 10A spec file under
+`docs/specs/`. Current OneDrive backup implementation evidence is the Day 10B
+commit `ee687f2` and the deploy files it added.
+
+`deploy/onedrive_upload.sh` uploads the latest local encrypted backup through
+rclone to the `onedrive` remote path `Duzman/Backups`, verifies the uploaded
+file by remote listing and size, writes a JSON Lines manifest, applies remote
+retention, and sends success or failure notifications through Telegram chat
+ids loaded from settings. `deploy/install_onedrive_backup.sh` installs
+`duzman-onedrive-backup.service` and `duzman-onedrive-backup.timer`.
+
+`duzman-onedrive-backup.timer` runs weekly on Sunday at 03:00 UTC, after the
+daily 02:30 UTC local backup. Remote retention is `RETENTION_COUNT=12` in
+`deploy/onedrive_upload.sh` and is described in `deploy/README.md` as
+independent 12-week retention.
+
+The upload manifest is
+`/opt/duzman/backups/onedrive_upload_manifest.jsonl`. Each JSON line records
+`uploaded_at`, `file`, `sha256`, `size_bytes`, and `remote`, as written by
+`append_manifest()` in `deploy/onedrive_upload.sh`.
+
+### Operational topology (post Day 10B)
+
+- `duzman.service` — umbrella service that binds the health and scheduler
+  child services.
+- `duzman-health.service` — local health service running the health runtime
+  entrypoint.
+- `duzman-scheduler.service` — long-running runtime scheduler service.
+- `duzman-backup.service` — oneshot daily encrypted backup service.
+- `duzman-backup.timer` — daily backup timer at 02:30 UTC.
+- `duzman-onedrive-backup.service` — oneshot weekly OneDrive backup upload.
+- `duzman-onedrive-backup.timer` — weekly OneDrive backup timer at Sunday
+  03:00 UTC.
+
+### Settings tolerance (post incident 2026-05-24)
+
+`src/duzman/settings.py` now sets `extra="ignore"` in
+`Settings.model_config`, merged as commit `5a252c0` in PR #68, so
+forward-compatible additions to `.env` do not raise Pydantic validation
+errors when settings are loaded at process start. The corresponding review
+lesson is recorded in `docs/process/REVIEW_PROTOCOL.md`.
+
+### Dev workflow — Codex git sandbox limitation
+
+Inside the Codex CLI sandbox, `.git` is mounted read-only even though the
+workspace tree is writable. The sanctioned manual git workflow is documented
+in `docs/process/CODEX_GIT_WORKFLOW.md`.
+
+### Current open scope
 
 - Telegram multi-chat, webhook, inline buttons, and per-alert snooze
 - Дашборд: FastAPI `/api/v1/` полностью, HTML + Plotly.js
 - Caddy + HTTPS
-- Deploy script в `/opt/duzman`
-- Daily backup в Telegram + weekly OneDrive
-- Retention job
+- Retention job beyond the documented backup-retention scripts
 - Daily digest
