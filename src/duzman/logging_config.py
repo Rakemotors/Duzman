@@ -20,6 +20,7 @@ SENSITIVE_FIELD_PATTERN = re.compile(
 def configure_logging(level: int = logging.INFO) -> None:
     """Configure standard-library logging when a runtime entrypoint is invoked."""
     logging.basicConfig(level=level, format=DEFAULT_LOG_FORMAT)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 def get_logger(name: str) -> logging.Logger:
