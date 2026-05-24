@@ -90,7 +90,7 @@ class TelegramAlertSender:
             else ai_explanations_enabled
         )
         self._anthropic_api_key_configured = (
-            bool(settings.anthropic_api_key)
+            bool(settings.anthropic_api_key.get_secret_value())
             if anthropic_api_key_configured is None
             else anthropic_api_key_configured
         )

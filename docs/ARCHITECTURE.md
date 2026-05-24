@@ -207,6 +207,13 @@ forward-compatible additions to `.env` do not raise Pydantic validation
 errors when settings are loaded at process start. The corresponding review
 lesson is recorded in `docs/process/REVIEW_PROTOCOL.md`.
 
+`database_url`, `anthropic_api_key`, `telegram_bot_token`, and
+`duzman_api_key` are now `SecretStr`, matching the existing
+`coinglass_api_key` precedent. This is defense-in-depth against accidental
+secret rendering in repr, dumps, or future `ValidationError` `input_value`
+scenarios; it does not address the root cause of incident 2026-05-24, which
+was fixed in PR #68 via `extra="ignore"`.
+
 ### Dev workflow — Codex git sandbox limitation
 
 Inside the Codex CLI sandbox, `.git` is mounted read-only even though the

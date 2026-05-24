@@ -32,7 +32,7 @@ async def _async_main(args: argparse.Namespace) -> int:
         if not settings.ai_explanations_enabled:
             LOGGER.info("ai explanations disabled, exiting")
             return 0
-        if not settings.anthropic_api_key:
+        if not settings.anthropic_api_key.get_secret_value():
             LOGGER.error("ANTHROPIC_API_KEY missing while AI_EXPLANATIONS_ENABLED=true")
             return 2
 

@@ -178,7 +178,7 @@ def _load_smoke_settings() -> AiExplanationSmokeSettings:
     settings = Settings()
     return AiExplanationSmokeSettings(
         ai_explanations_enabled=settings.ai_explanations_enabled,
-        anthropic_api_key=settings.anthropic_api_key,
+        anthropic_api_key=settings.anthropic_api_key.get_secret_value(),
         ai_explanation_max_per_hour=settings.ai_explanation_max_per_hour,
         ai_explanation_max_per_day=settings.ai_explanation_max_per_day,
         ai_explanation_max_input_chars=settings.ai_explanation_max_input_chars,
