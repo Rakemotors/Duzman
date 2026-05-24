@@ -1,10 +1,11 @@
-"""Tests for persisting deterministic indicator records."""
+"""Tests for persisting deterministic indicator records and the #72 FK invariant."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import create_engine, select, text
+from sqlalchemy import create_engine, event, func, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from duzman.db.models import Asset, Indicator
@@ -70,8 +71,36 @@ async def test_indicator_repository_persists_parameters_dict():
     assert indicator.parameters == {"period": 14, "source": "test"}
 
 
-def _sqlite_session() -> Session:
+@pytest.mark.asyncio
+async def test_indicator_repository_raises_integrity_error_without_asset():
+    """Missing assets must surface as an FK IntegrityError for Issue #72."""
+    session = _sqlite_session(seed_asset=False)
+    repository = IndicatorRepository()
+
+    with pytest.raises(IntegrityError, match="FOREIGN KEY constraint failed"):
+        await repository.save_indicators(session, [_indicator_record()])
+
+
+@pytest.mark.asyncio
+async def test_indicator_repository_saves_indicator_when_asset_exists():
+    """Pre-existing assets are required before indicator persistence."""
+    session = _sqlite_session(seed_asset=True)
+    repository = IndicatorRepository()
+
+    await repository.save_indicators(session, [_indicator_record(value=Decimal("50.0"))])
+    session.commit()
+
+    indicator_count = session.scalar(select(func.count()).select_from(Indicator))
+    assert indicator_count == 1
+
+
+def _sqlite_session(seed_asset: bool = True) -> Session:
     engine = create_engine("sqlite+pysqlite:///:memory:")
+
+    @event.listens_for(engine, "connect")
+    def _enable_sqlite_foreign_keys(connection, _connection_record):
+        connection.execute("PRAGMA foreign_keys=ON")
+
     Asset.__table__.create(engine)
     with engine.begin() as connection:
         connection.execute(
@@ -84,14 +113,16 @@ def _sqlite_session() -> Session:
                     indicator_type VARCHAR(20) NOT NULL,
                     timeframe VARCHAR(10),
                     value NUMERIC(12, 4),
-                    parameters JSON
+                    parameters JSON,
+                    FOREIGN KEY(asset) REFERENCES assets(symbol)
                 )
                 """
             )
         )
     session = Session(engine)
-    session.add(Asset(symbol="BTC", name="Bitcoin"))
-    session.commit()
+    if seed_asset:
+        session.add(Asset(symbol="BTC", name="Bitcoin"))
+        session.commit()
     return session
 
 
@@ -100,7 +131,7 @@ def _indicator_record(
     parameters: dict | None = None,
 ) -> IndicatorRecord:
     return IndicatorRecord(
-        ts=datetime(2026, 5, 16, 12, 23, tzinfo=timezone.utc),
+        ts=datetime(2026, 5, 16, 12, 23, tzinfo=UTC),
         asset="BTC",
         indicator_type="rsi",
         timeframe="1h",
