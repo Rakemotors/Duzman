@@ -64,7 +64,7 @@ class ExplanationServiceConfig:
         """Create service config from global project settings."""
         return cls(
             enabled=settings.ai_explanations_enabled,
-            api_key_configured=bool(settings.anthropic_api_key),
+            api_key_configured=bool(settings.anthropic_api_key.get_secret_value()),
             model=settings.ai_explanation_model,
             fallback_model=settings.ai_explanation_fallback_model,
             max_per_hour=settings.ai_explanation_max_per_hour,

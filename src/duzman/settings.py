@@ -12,12 +12,12 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    database_url: str = ""
-    anthropic_api_key: str = ""
-    telegram_bot_token: str = ""
+    database_url: SecretStr = SecretStr("")
+    anthropic_api_key: SecretStr = SecretStr("")
+    telegram_bot_token: SecretStr = SecretStr("")
     telegram_chat_id_alerts: str = ""
     telegram_chat_id_system: str = ""
-    duzman_api_key: str = ""
+    duzman_api_key: SecretStr = SecretStr("")
     coinglass_api_key: SecretStr | None = None
     ai_explanations_enabled: bool = False
     ai_explanation_model: str = "claude-sonnet-4-6"

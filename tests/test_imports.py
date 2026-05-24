@@ -17,7 +17,7 @@ def test_settings_module_imports_without_repo_env(monkeypatch, tmp_path):
 
     module = importlib.import_module("duzman.settings")
 
-    assert module.settings.database_url == ""
+    assert module.settings.database_url.get_secret_value() == ""
     assert module.settings.ai_explanations_enabled is False
     assert module.settings.ai_explanation_model == "claude-sonnet-4-6"
 

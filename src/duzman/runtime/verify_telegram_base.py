@@ -141,9 +141,9 @@ def _load_settings() -> TelegramBaseSmokeSettings:
     """Load smoke settings through the product Settings layer."""
     settings = Settings()
     return TelegramBaseSmokeSettings(
-        database_url=settings.database_url,
+        database_url=settings.database_url.get_secret_value(),
         ai_explanations_enabled=settings.ai_explanations_enabled,
-        telegram_bot_token=settings.telegram_bot_token,
+        telegram_bot_token=settings.telegram_bot_token.get_secret_value(),
         telegram_chat_id_alerts=settings.telegram_chat_id_alerts,
     )
 

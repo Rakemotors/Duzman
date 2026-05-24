@@ -40,23 +40,27 @@ def build_components_from_settings(settings: Settings) -> AiWorkerComponents:
     The sync `DATABASE_URL` remains unchanged for existing sync code. This
     composition root derives an async SQLAlchemy URL only for the day-8 worker.
     """
-    async_url = _build_async_database_url(settings.database_url)
+    database_url = settings.database_url.get_secret_value()
+    telegram_bot_token = settings.telegram_bot_token.get_secret_value()
+    anthropic_api_key = settings.anthropic_api_key.get_secret_value()
+
+    async_url = _build_async_database_url(database_url)
     async_engine = create_async_engine(async_url, echo=False, pool_pre_ping=True)
     session_factory = async_sessionmaker(async_engine, expire_on_commit=False)
 
-    if not settings.telegram_bot_token:
+    if not telegram_bot_token:
         raise ValueError("TELEGRAM_BOT_TOKEN must be configured for AI explanations")
     if not settings.telegram_chat_id_alerts:
         raise ValueError("TELEGRAM_CHAT_ID_ALERTS must be configured for AI explanations")
 
-    telegram_client = TelegramBotClient(settings.telegram_bot_token)
+    telegram_client = TelegramBotClient(telegram_bot_token)
     telegram_sender = TelegramAlertSender(
         telegram_client,
         settings.telegram_chat_id_alerts,
         session_factory=session_factory,
     )
     anthropic_client = AnthropicClient(
-        settings.anthropic_api_key,
+        anthropic_api_key,
         fallback_model=settings.ai_explanation_fallback_model,
         retry_max=settings.ai_explanation_retry_max,
     )

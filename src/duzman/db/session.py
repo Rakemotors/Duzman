@@ -19,11 +19,12 @@ def get_engine() -> Engine:
     """Return the configured SQLAlchemy engine without creating it at import time."""
     global _engine
     if _engine is None:
-        if not settings.database_url:
+        database_url = settings.database_url.get_secret_value()
+        if not database_url:
             raise RuntimeError(
                 "DATABASE_URL must be configured before opening database sessions."
             )
-        _engine = create_engine(settings.database_url, pool_pre_ping=True)
+        _engine = create_engine(database_url, pool_pre_ping=True)
     return _engine
 
 
