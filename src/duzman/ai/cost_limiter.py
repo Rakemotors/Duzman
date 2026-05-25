@@ -1,6 +1,6 @@
 # src/duzman/ai/cost_limiter.py
-# Cost-cap accounting for AI explanations. Counts persisted explanation tasks
-# before any Anthropic call is attempted.
+# Cost-cap accounting for AI explanations. Counts terminal Anthropic attempts
+# inside rolling hourly and daily budget windows.
 """Hard cost caps for AI explanation tasks."""
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from duzman.db.models import AlertExplanation
 
-COUNTED_STATUSES = ("running", "completed", "failed", "failed_stale")
+COUNTED_STATUSES = ("completed", "failed", "failed_stale")
 
 
 class BudgetStatus(StrEnum):
@@ -45,12 +45,18 @@ async def check_budget(
 
 async def _count_since(session: AsyncSession, since: datetime) -> int:
     """Count statuses that consume explanation budget since a timestamp."""
+    budget_timestamp = _budget_window_timestamp()
     count = await session.scalar(
         select(func.count())
         .select_from(AlertExplanation)
         .where(
             AlertExplanation.status.in_(COUNTED_STATUSES),
-            AlertExplanation.created_at > since,
+            budget_timestamp > since,
         )
     )
     return int(count or 0)
+
+
+def _budget_window_timestamp() -> object:
+    """Return the timestamp used for retry-aware budget windows."""
+    return func.coalesce(AlertExplanation.completed_at, AlertExplanation.created_at)
