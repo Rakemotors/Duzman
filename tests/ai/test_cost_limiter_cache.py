@@ -55,10 +55,107 @@ async def test_check_budget_allows_cap_minus_one(session: AsyncSession) -> None:
 
 
 @pytest.mark.asyncio
+async def test_check_budget_ignores_running_self_count(session: AsyncSession) -> None:
+    """Running rows should not block the task currently being budget-checked."""
+    session.add(
+        _row(
+            1,
+            status="running",
+            created_at=NOW,
+            started_at=NOW,
+        )
+    )
+    await session.flush()
+
+    assert await check_budget(session, max_per_hour=1, max_per_day=1, now=NOW) == BudgetStatus.OK
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", ["completed", "failed", "failed_stale"])
+async def test_check_budget_counts_terminal_attempt_statuses(
+    session: AsyncSession,
+    status: str,
+) -> None:
+    """Terminal Anthropic-attempt rows should consume budget."""
+    session.add(_row(1, status=status, created_at=NOW - timedelta(minutes=10)))
+    await session.flush()
+
+    assert (
+        await check_budget(session, max_per_hour=1, max_per_day=50, now=NOW)
+        == BudgetStatus.EXCEEDED_HOUR
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "status",
+    [
+        "pending",
+        "running",
+        "reused_cache",
+        "skipped_cost_cap",
+        "skipped_disabled",
+        "skipped_no_base_message",
+    ],
+)
+async def test_check_budget_ignores_non_attempt_statuses(
+    session: AsyncSession,
+    status: str,
+) -> None:
+    """Rows without terminal Anthropic attempts should not consume budget."""
+    session.add(_row(1, status=status, created_at=NOW - timedelta(minutes=10)))
+    await session.flush()
+
+    assert await check_budget(session, max_per_hour=1, max_per_day=1, now=NOW) == BudgetStatus.OK
+
+
+@pytest.mark.asyncio
+async def test_check_budget_prefers_completed_at_for_retry_accounting(
+    session: AsyncSession,
+) -> None:
+    """Same-row retries should count in the window where they finish."""
+    session.add(
+        _row(
+            1,
+            status="completed",
+            created_at=NOW - timedelta(hours=2),
+            completed_at=NOW - timedelta(minutes=10),
+        )
+    )
+    await session.flush()
+
+    assert (
+        await check_budget(session, max_per_hour=1, max_per_day=50, now=NOW)
+        == BudgetStatus.EXCEEDED_HOUR
+    )
+
+
+@pytest.mark.asyncio
+async def test_check_budget_falls_back_to_created_at_for_legacy_rows(
+    session: AsyncSession,
+) -> None:
+    """Legacy counted terminal rows without completed_at should still count."""
+    session.add(
+        _row(
+            1,
+            status="failed",
+            created_at=NOW - timedelta(minutes=10),
+            completed_at=None,
+        )
+    )
+    await session.flush()
+
+    assert (
+        await check_budget(session, max_per_hour=1, max_per_day=50, now=NOW)
+        == BudgetStatus.EXCEEDED_HOUR
+    )
+
+
+@pytest.mark.asyncio
 async def test_check_budget_blocks_hour_cap(session: AsyncSession) -> None:
-    """Hour cap should block when counted statuses reach the limit."""
+    """Hour cap should block when counted statuses reach the hourly limit."""
     for index in range(10):
-        session.add(_row(index, status="failed", created_at=NOW - timedelta(minutes=10)))
+        session.add(_row(index, status="completed", created_at=NOW - timedelta(minutes=10)))
     await session.flush()
 
     assert (
@@ -68,15 +165,27 @@ async def test_check_budget_blocks_hour_cap(session: AsyncSession) -> None:
 
 
 @pytest.mark.asyncio
-async def test_check_budget_ignores_reused_cache_and_skipped(session: AsyncSession) -> None:
-    """Cache and skipped rows should not consume Anthropic budget."""
-    for index, status in enumerate(
-        ("reused_cache", "skipped_cost_cap", "skipped_no_base_message")
-    ):
-        session.add(_row(index, status=status, created_at=NOW - timedelta(minutes=10)))
+async def test_check_budget_blocks_day_cap(session: AsyncSession) -> None:
+    """Day cap should block when counted statuses reach the daily limit."""
+    session.add(_row(1, status="completed", created_at=NOW - timedelta(hours=2)))
     await session.flush()
 
-    assert await check_budget(session, max_per_hour=1, max_per_day=1, now=NOW) == BudgetStatus.OK
+    assert (
+        await check_budget(session, max_per_hour=10, max_per_day=1, now=NOW)
+        == BudgetStatus.EXCEEDED_DAY
+    )
+
+
+@pytest.mark.asyncio
+async def test_check_budget_returns_hour_cap_before_day_cap(session: AsyncSession) -> None:
+    """Budget status should preserve hour-before-day precedence."""
+    session.add(_row(1, status="completed", created_at=NOW - timedelta(minutes=10)))
+    await session.flush()
+
+    assert (
+        await check_budget(session, max_per_hour=1, max_per_day=1, now=NOW)
+        == BudgetStatus.EXCEEDED_HOUR
+    )
 
 
 @pytest.mark.asyncio
@@ -106,6 +215,8 @@ def _row(
     *,
     status: str,
     created_at: datetime,
+    started_at: datetime | None = None,
+    completed_at: datetime | None = None,
     text: str | None = "cached",
 ) -> AlertExplanation:
     """Build one AlertExplanation row for budget/cache tests."""
@@ -119,4 +230,6 @@ def _row(
         prompt_context_json={},
         text=text,
         created_at=created_at,
+        started_at=started_at,
+        completed_at=completed_at,
     )

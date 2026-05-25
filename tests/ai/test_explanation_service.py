@@ -158,6 +158,35 @@ async def test_process_task_skips_cost_cap(session: AsyncSession) -> None:
 
 
 @pytest.mark.asyncio
+async def test_process_task_does_not_self_block_after_claim(
+    session: AsyncSession,
+) -> None:
+    """A claimed running task should not count itself before the Anthropic call."""
+    explanation = await _seed_pending(session)
+    client = FakeAnthropicClient()
+    sender = FakeTelegramSender()
+    service = _service(
+        client,
+        sender,
+        config=ExplanationServiceConfig(
+            enabled=True,
+            api_key_configured=True,
+            max_per_hour=1,
+            max_per_day=1,
+        ),
+    )
+
+    status = await service.process_task(session, int(explanation.id))
+
+    assert status == "completed"
+    assert client.calls == 1
+    assert explanation.text == "ai text"
+    assert explanation.total_tokens == 3
+    assert explanation.alert_delivery_id is not None
+    assert sender.sent == [(int(explanation.alert_delivery_id), "ai text")]
+
+
+@pytest.mark.asyncio
 async def test_process_task_skips_missing_base_message_before_anthropic(
     session: AsyncSession,
 ) -> None:

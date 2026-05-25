@@ -92,6 +92,7 @@ them simultaneously.
 - `src/duzman/ai/` implements the optional Anthropic explanation layer: API client wrapper, prompt builder, budget/cache helpers, task service, and sequential background worker.
 - `alert_explanations` stores one idempotent explanation task per `pattern_trigger_id`, with terminal statuses for completed, reused cache, cost-cap skip, disabled skip, missing base message id, failed, and failed stale.
 - Existing failed, failed stale, and cost-cap skipped explanation rows may be reset in place to `pending` by `create_pending_explanation()` with the current `alert_delivery_id` and prompt cache metadata; completed, reused cache, disabled, missing-base-message, pending, and running rows remain non-retryable to avoid duplicate spend or duplicate replies.
+- Cost caps count only terminal Anthropic-attempt statuses (`completed`, `failed`, `failed_stale`) using `completed_at` with `created_at` fallback, so a claimed `running` row cannot block itself and same-row retries count in the window where they finish.
 - Telegram delivery remains the source of ordering: the base alert is sent first, its `telegram_message_id` is stored in `alert_deliveries`, and explanations are sent later as Telegram replies.
 - The layer is feature-flagged by `AI_EXPLANATIONS_ENABLED`; missing `ANTHROPIC_API_KEY`, API failures, cost caps, or missing base message ids do not block normal AlertGate or Telegram delivery.
 - Settings reject `claude-opus-*` model names for the Day 8 MVP, keeping the explanation layer on Sonnet-class models.
