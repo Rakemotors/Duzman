@@ -5,13 +5,14 @@ from __future__ import annotations
 import inspect
 import logging
 from collections.abc import Callable, Sequence
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+from duzman.assets import STAGE_A_ASSETS
 from duzman.collectors import (
     BinanceCollector,
     BybitCollector,
@@ -28,9 +29,8 @@ from duzman.indicators import (
 from duzman.logging_config import get_logger, log_event, safe_error_message
 from duzman.repositories import IndicatorRepository
 
-
 HOURLY_INDICATOR_COLLECTION_JOB_ID = "hourly_indicator_collection"
-STAGE_A_INDICATOR_ASSETS: tuple[str, ...] = ("BTC", "ETH", "SOL", "SUI", "TON", "UNI")
+STAGE_A_INDICATOR_ASSETS = STAGE_A_ASSETS
 
 
 async def collect_indicators_job(
@@ -101,7 +101,7 @@ async def _collect_asset_indicators(
     binance_collector: BinanceCollector,
     bybit_collector: BybitCollector,
 ) -> list[IndicatorRecord]:
-    collected_at = datetime.now(timezone.utc)
+    collected_at = datetime.now(UTC)
     records: list[IndicatorRecord] = []
 
     candles_1h = await binance_collector.fetch_ohlcv(asset, "1h", limit=100)

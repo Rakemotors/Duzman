@@ -3,11 +3,18 @@ import sys
 from unittest.mock import Mock
 
 
-def test_run_scheduler_registers_expected_jobs() -> None:
+def test_run_scheduler_registers_expected_jobs(monkeypatch) -> None:
     """The runtime entrypoint should use the existing scheduler job set."""
+    import duzman.db.session as db_session
     from duzman.runtime.run_scheduler import build_scheduler
 
     scheduler = Mock()
+    session_factory = Mock()
+    monkeypatch.setattr(
+        db_session,
+        "get_session_factory",
+        Mock(return_value=session_factory),
+    )
 
     assert build_scheduler(scheduler=scheduler) is scheduler
     assert scheduler.add_job.call_count == 6
