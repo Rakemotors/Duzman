@@ -16,9 +16,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from duzman.ai.anthropic_client import AnthropicCallError, ExplanationResult
 from duzman.ai.cache import lookup_cached_explanation
 from duzman.ai.cost_limiter import BudgetStatus, check_budget
-from duzman.ai.prompt_builder import build_prompt
+from duzman.ai.prompt_builder import PromptBundle, build_prompt
 from duzman.db.models import AlertDelivery, AlertExplanation, PatternTrigger
 from duzman.settings import Settings
+
+AI_EXPLANATION_RETRYABLE_TERMINAL_STATUSES = frozenset(
+    {"failed", "failed_stale", "skipped_cost_cap"}
+)
 
 
 class ExplanationTelegramSender(Protocol):
@@ -202,8 +206,14 @@ async def create_pending_explanation(
             AlertExplanation.pattern_trigger_id == int(pattern_trigger.id)
         )
     )
+
     if existing is not None:
-        return None
+        if existing.status not in AI_EXPLANATION_RETRYABLE_TERMINAL_STATUSES:
+            return None
+        prompt = build_prompt(pattern_trigger, {}, None, max_input_chars=max_input_chars)
+        _reset_existing_explanation_for_retry(existing, prompt, alert_delivery_id)
+        await session.flush()
+        return existing
 
     prompt = build_prompt(pattern_trigger, {}, None, max_input_chars=max_input_chars)
     row = AlertExplanation(
@@ -217,6 +227,27 @@ async def create_pending_explanation(
     session.add(row)
     await session.flush()
     return row
+
+
+def _reset_existing_explanation_for_retry(
+    explanation: AlertExplanation,
+    prompt: PromptBundle,
+    alert_delivery_id: int | None,
+) -> None:
+    """Reset a retryable terminal row in place to respect the trigger unique index."""
+    explanation.status = "pending"
+    explanation.alert_delivery_id = alert_delivery_id
+    explanation.cache_key = prompt.cache_key
+    explanation.started_at = None
+    explanation.completed_at = None
+    explanation.error_message = None
+    explanation.model = None
+    explanation.text = None
+    explanation.prompt_tokens = None
+    explanation.completion_tokens = None
+    explanation.total_tokens = None
+    explanation.prompt_hash = prompt.prompt_hash
+    explanation.prompt_context_json = prompt.context_json
 
 
 async def _claim_explanation(
