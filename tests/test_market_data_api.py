@@ -1,6 +1,9 @@
-from datetime import datetime, timedelta, timezone
+"""Tests for the read-only market data FastAPI routes."""
+
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -12,6 +15,15 @@ from duzman.collectors import MarketDataSnapshot
 from duzman.db.models import Asset, PriceSnapshot, SourceHealthCheck
 from duzman.repositories import PriceSnapshotRepository, SourceHealthRepository
 from duzman.runtime.verify_read_only_api import verify_read_only_api_app
+
+TEST_API_KEY = "test-key-not-a-real-secret"
+AUTH_HEADERS = {"X-API-Key": TEST_API_KEY}
+
+
+@pytest.fixture(autouse=True)
+def _test_api_key(monkeypatch):
+    """Inject a non-production API key before any test creates the API app."""
+    monkeypatch.setenv("DUZMAN_API_KEY", TEST_API_KEY)
 
 
 def _api_client_with_seed_data(
@@ -29,7 +41,7 @@ def _api_client_with_seed_data(
     SourceHealthCheck.__table__.create(engine)
     session_factory = sessionmaker(bind=engine)
 
-    snapshot_time = collected_at or datetime(2026, 5, 15, 12, 17, tzinfo=timezone.utc)
+    snapshot_time = collected_at or datetime(2026, 5, 15, 12, 17, tzinfo=UTC)
     second_snapshot_time = snapshot_time + timedelta(minutes=1)
     health_time = health_checked_at or snapshot_time
     second_health_time = health_time + timedelta(minutes=1)
@@ -96,7 +108,9 @@ def _api_client_with_seed_data(
             db.close()
 
     app.dependency_overrides[get_api_db] = override_db
-    return TestClient(app), session_factory
+    client = TestClient(app)
+    client.headers.update(AUTH_HEADERS)
+    return client, session_factory
 
 
 def _api_client_without_seed_data() -> TestClient:
@@ -119,7 +133,9 @@ def _api_client_without_seed_data() -> TestClient:
             db.close()
 
     app.dependency_overrides[get_api_db] = override_db
-    return TestClient(app)
+    client = TestClient(app)
+    client.headers.update(AUTH_HEADERS)
+    return client
 
 
 def test_latest_price_snapshots_endpoint_returns_read_only_data_shape():
@@ -199,7 +215,7 @@ def test_ingestion_status_endpoint_returns_summary():
 
 def test_ingestion_status_endpoint_returns_healthy_alert_summary():
     """Fresh persisted rows with healthy sources should summarize as healthy."""
-    checked_at = datetime(2099, 1, 1, 12, 0, tzinfo=timezone.utc)
+    checked_at = datetime(2099, 1, 1, 12, 0, tzinfo=UTC)
     client, _ = _api_client_with_seed_data(
         collected_at=checked_at,
         health_checked_at=checked_at,
@@ -222,8 +238,8 @@ def test_ingestion_status_endpoint_returns_healthy_alert_summary():
 
 def test_ingestion_status_endpoint_returns_warning_alert_summary():
     """Warning-only deterministic alerts should summarize as warning."""
-    stale_price_at = datetime(2000, 1, 1, 12, 0, tzinfo=timezone.utc)
-    fresh_health_at = datetime(2099, 1, 1, 12, 0, tzinfo=timezone.utc)
+    stale_price_at = datetime(2000, 1, 1, 12, 0, tzinfo=UTC)
+    fresh_health_at = datetime(2099, 1, 1, 12, 0, tzinfo=UTC)
     client, _ = _api_client_with_seed_data(
         collected_at=stale_price_at,
         health_checked_at=fresh_health_at,
@@ -244,7 +260,7 @@ def test_ingestion_status_endpoint_returns_warning_alert_summary():
 
 def test_ingestion_status_endpoint_returns_critical_alert_summary():
     """Any critical deterministic alert should summarize as critical."""
-    checked_at = datetime(2099, 1, 1, 12, 0, tzinfo=timezone.utc)
+    checked_at = datetime(2099, 1, 1, 12, 0, tzinfo=UTC)
     client, _ = _api_client_with_seed_data(
         collected_at=checked_at,
         health_checked_at=checked_at,
@@ -264,7 +280,7 @@ def test_ingestion_status_endpoint_returns_critical_alert_summary():
 def test_ingestion_alerts_endpoint_returns_deterministic_alerts():
     """Ingestion alerts should be derived only from persisted local rows."""
     client, _ = _api_client_with_seed_data(
-        collected_at=datetime.now(timezone.utc) - timedelta(minutes=2)
+        collected_at=datetime.now(UTC) - timedelta(minutes=2)
     )
 
     response = client.get("/api/market-data/ingestion-alerts")
@@ -297,6 +313,82 @@ def test_market_data_api_rejects_write_methods():
     response = client.post("/api/market-data/prices/latest", json={})
 
     assert response.status_code == 405
+
+
+def test_market_data_api_rejects_missing_api_key():
+    """Protected market-data routes should reject requests without X-API-Key."""
+    client, _ = _api_client_with_seed_data()
+    client.headers.pop("X-API-Key", None)
+
+    response = client.get("/api/market-data/prices/latest")
+
+    assert response.status_code == 401
+    assert response.headers["WWW-Authenticate"] == 'ApiKey realm="duzman"'
+
+
+def test_market_data_api_rejects_empty_api_key():
+    """Protected market-data routes should reject empty X-API-Key values."""
+    client, _ = _api_client_with_seed_data()
+
+    response = client.get(
+        "/api/market-data/prices/latest",
+        headers={"X-API-Key": ""},
+    )
+
+    assert response.status_code == 401
+    assert response.headers["WWW-Authenticate"] == 'ApiKey realm="duzman"'
+
+
+def test_market_data_api_rejects_wrong_api_key():
+    """Protected market-data routes should reject mismatched X-API-Key values."""
+    client, _ = _api_client_with_seed_data()
+
+    response = client.get(
+        "/api/market-data/prices/latest",
+        headers={"X-API-Key": "wrong-test-key"},
+    )
+
+    assert response.status_code == 401
+    assert response.headers["WWW-Authenticate"] == 'ApiKey realm="duzman"'
+
+
+def test_all_market_data_routes_require_api_key():
+    """All current market-data routes should inherit router-level auth."""
+    client, _ = _api_client_with_seed_data()
+    client.headers.pop("X-API-Key", None)
+
+    for path in (
+        "/api/market-data/prices/latest",
+        "/api/market-data/source-health",
+        "/api/market-data/ingestion-status",
+        "/api/market-data/ingestion-alerts",
+    ):
+        response = client.get(path)
+        assert response.status_code == 401
+        assert response.headers["WWW-Authenticate"] == 'ApiKey realm="duzman"'
+
+
+def test_api_app_creation_fails_closed_without_api_key(monkeypatch, tmp_path):
+    """Empty DUZMAN_API_KEY should stop protected API app creation."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("DUZMAN_API_KEY", raising=False)
+
+    with pytest.raises(RuntimeError, match="DUZMAN_API_KEY must be configured"):
+        create_app()
+
+
+def test_openapi_documents_x_api_key_security_scheme():
+    """OpenAPI should expose X-API-Key as the market-data auth scheme."""
+    app = create_app()
+
+    schema = app.openapi()
+
+    security_schemes = schema["components"]["securitySchemes"]
+    assert security_schemes["APIKeyHeader"]["name"] == "X-API-Key"
+    assert security_schemes["APIKeyHeader"]["in"] == "header"
+    assert schema["paths"]["/api/market-data/prices/latest"]["get"]["security"] == [
+        {"APIKeyHeader": []}
+    ]
 
 
 def test_market_data_api_does_not_start_scheduler_or_fetch_network(monkeypatch):

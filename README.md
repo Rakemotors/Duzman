@@ -77,13 +77,32 @@ The FastAPI app factory `duzman.api.create_app()` registers read-only market dat
 
 These routes read already persisted public market data only. They do not start APScheduler, run collection, call live exchange APIs, run migrations, place orders, or access private exchange/account endpoints.
 
+All `/api/market-data/*` routes require `X-API-Key`. The source of truth is
+`DUZMAN_API_KEY`; set a non-empty value before creating or serving the FastAPI
+app. Empty or missing `DUZMAN_API_KEY` fails closed at app creation with a
+non-secret `RuntimeError`. Generate a local key outside the repo, for example:
+
+```bash
+openssl rand -hex 32
+```
+
+Send requests with:
+
+```bash
+curl -H "X-API-Key: REPLACE_WITH_YOUR_KEY" http://127.0.0.1:8000/api/market-data/ingestion-status
+```
+
+`/health` remains open because it is served by the separate health server, not
+the main FastAPI API app.
+
 `/api/market-data/ingestion-alerts` returns deterministic read-only alerts for local ingestion health, including missing price data, stale price data, missing source health checks, recent source failures, and stale source health checks. These alerts are based only on persisted local records and are not AI-generated trading advice.
 
-`/api/market-data/ingestion-status` includes an `ingestion_health_summary` field with deterministic `healthy`, `warning`, or `critical` status derived from the same alert logic.
+`/api/market-data/ingestion-status` includes an `ingestion_health_summary` field with deterministic `healthy`, `warning`, or `critical` status derived from the same alert logic. It is intentionally protected even though older TZ text described it as open, because it exposes operational telemetry such as observed assets, sources, timestamps, counts, health state, and alerts. `/health` is the open liveness endpoint.
 
 Verify route registration offline with:
 
 ```bash
+DUZMAN_API_KEY=your-api-key-here \
 .venv/bin/python -m duzman.runtime.verify_read_only_api
 ```
 

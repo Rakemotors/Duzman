@@ -1,3 +1,5 @@
+"""Tests for the read-only API runtime verification command."""
+
 import subprocess
 import sys
 
@@ -13,6 +15,7 @@ def test_read_only_api_runtime_check_command_succeeds():
         check=False,
         capture_output=True,
         text=True,
+        env={"DUZMAN_API_KEY": "test-key-not-a-real-secret"},
     )
 
     assert result.returncode == 0
