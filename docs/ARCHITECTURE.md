@@ -127,10 +127,24 @@ Two-phase read-then-write in evaluate (`count_allow_in_window`/`cooldown_hit`, t
 
 ### Read-only API
 
-- GET /api/market-data/prices/latest — последние цены из price_snapshots
-- GET /api/market-data/source-health — статус источников
-- GET /api/market-data/ingestion-status — общий статус сбора + ingestion_health_summary
-- GET /api/market-data/ingestion-alerts — детерминированные алерты по ingestion
+- GET /api/market-data/prices/latest — latest prices from price_snapshots
+- GET /api/market-data/source-health — source health status
+- GET /api/market-data/ingestion-status — ingestion summary plus ingestion_health_summary
+- GET /api/market-data/ingestion-alerts — deterministic ingestion alerts
+
+All `/api/market-data/*` routes are protected at router level by the
+`X-API-Key` header. `DUZMAN_API_KEY` is the source of truth, and empty or
+missing configuration fails closed during `create_app()` before protected
+routes are served. Missing, empty, or incorrect request keys return 401 with
+`WWW-Authenticate: ApiKey realm="duzman"`.
+
+`/health` remains open because it belongs to the separate health server
+(`duzman.runtime.run_health_server`), not the main FastAPI API app. The
+`/api/market-data/ingestion-status` route is intentionally protected even
+though older TZ text described it as open: it exposes operational telemetry
+including assets seen, sources seen, timestamps, counts, health state, and
+alerts. TODO: sync this route-auth policy back into `docs/TZ.md` through the
+change-control process.
 
 ### Тесты
 

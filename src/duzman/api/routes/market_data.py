@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from duzman.api.dependencies import get_api_db
+from duzman.api.dependencies import get_api_db, require_api_key
 from duzman.api.schemas import (
     IngestionHealthAlertRead,
     IngestionHealthSummaryRead,
@@ -25,8 +25,11 @@ from duzman.services import (
     summarize_ingestion_health,
 )
 
-
-router = APIRouter(prefix="/api/market-data", tags=["market-data"])
+router = APIRouter(
+    prefix="/api/market-data",
+    tags=["market-data"],
+    dependencies=[Depends(require_api_key)],
+)
 
 
 @router.get("/prices/latest", response_model=list[PriceSnapshotRead])
