@@ -129,6 +129,7 @@ Two-phase read-then-write in evaluate (`count_allow_in_window`/`cooldown_hit`, t
 - indicator_jobs.py — hourly deterministic indicator collection at XX:23 UTC; reads Binance OHLCV/tickers and Bybit mark prices, then persists indicators
 - coingecko_global_hourly — hourly BTC dominance collection at XX:17 UTC; appends global_metrics rows via GlobalMetricRepository
 - coinglass_hourly — hourly CoinGlass liquidation and heatmap collection at XX:18 UTC; uses LiquidationRepository and HeatmapRepository
+- pattern_tick_hourly — hourly Pattern Engine tick at XX:33 UTC; persists AlertGate decisions to pattern_triggers with dispatch disabled
 - etf_flows_daily — daily Farside ETF flow collection at 02:17 UTC; job registered in runtime scheduler and not started automatically
 - fear_greed_daily — daily Alternative.me Fear & Greed collection at 02:17 UTC; job registered independently and not started automatically
 
@@ -259,3 +260,18 @@ in `docs/process/CODEX_GIT_WORKFLOW.md`.
 - Caddy + HTTPS
 - Retention job beyond the documented backup-retention scripts
 - Daily digest
+
+### Phase 1 — Pattern Tick Scheduler Wiring
+
+- `src/duzman/runtime/market_data_scheduler.py` registers `pattern_tick_hourly`
+  at XX:33 UTC, separate from existing XX:17, XX:18, and XX:23 jobs.
+- The job runs `run_hourly_pattern_tick` with `dispatch_alerts=None`, so Phase 1
+  is observation-only: AlertGate decisions may be persisted to `pattern_triggers`,
+  but Telegram delivery, AI explanation rows, and external notification side
+  effects are not connected.
+- The full tick (evaluation + post-tick count) runs inside one `asyncio.run`
+  call to keep asyncpg/SQLAlchemy connection pool bound to a single live event
+  loop.
+- Successful runs emit `pattern_tick_cycle_completed` with `allowed_count`,
+  `total_matches`, and `elapsed_ms`. Failed runs emit `pattern_tick_cycle_failed`
+  with `safe_error_message` and re-raise so APScheduler records the job failure.
