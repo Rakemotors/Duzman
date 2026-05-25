@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from sqlalchemy import create_engine, select
@@ -10,8 +10,9 @@ from duzman.db.models import Asset, PriceSnapshot, SourceHealthCheck
 from duzman.runtime.market_data_scheduler import (
     DAILY_ETF_FLOWS_JOB_ID,
     DAILY_FEAR_GREED_JOB_ID,
-    HOURLY_COINGLASS_JOB_ID,
     HOURLY_COINGECKO_GLOBAL_JOB_ID,
+    HOURLY_COINGLASS_JOB_ID,
+    HOURLY_PATTERN_TICK_JOB_ID,
     build_market_data_scheduler,
     run_market_data_scheduler_forever,
 )
@@ -31,7 +32,7 @@ class FakePublicMarketDataFetcher:
             asset=asset_symbol,
             quote_currency="USDT",
             price_usd=Decimal("67123.45") if asset_symbol == "BTC" else Decimal("3123.45"),
-            ts=collected_at or datetime.now(timezone.utc),
+            ts=collected_at or datetime.now(UTC),
             raw_payload={"symbol": symbol},
         )
 
@@ -44,7 +45,7 @@ class FakePublicMarketDataFetcher:
             asset=symbol,
             quote_currency="USD",
             price_usd=Decimal("67120.01") if symbol == "BTC" else Decimal("3120.01"),
-            ts=collected_at or datetime.now(timezone.utc),
+            ts=collected_at or datetime.now(UTC),
             raw_payload={"id": coin_id},
         )
 
@@ -84,13 +85,14 @@ def test_build_market_data_scheduler_registers_job_without_starting():
     jobs = scheduler.get_jobs()
 
     assert scheduler.running is False
-    assert len(jobs) == 6
+    assert len(jobs) == 7
     jobs_by_id = {job.id: job for job in jobs}
     assert set(jobs_by_id) == {
         DAILY_ETF_FLOWS_JOB_ID,
         DAILY_FEAR_GREED_JOB_ID,
         HOURLY_COINGLASS_JOB_ID,
         HOURLY_COINGECKO_GLOBAL_JOB_ID,
+        HOURLY_PATTERN_TICK_JOB_ID,
         HOURLY_MARKET_DATA_INGESTION_JOB_ID,
         HOURLY_INDICATOR_COLLECTION_JOB_ID,
     }
