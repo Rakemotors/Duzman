@@ -1,6 +1,6 @@
 # Duzman Architecture
 
-Based on: Техническое задание v1.9 от 22 мая 2026 (docs/TZ.md)
+Based on: Техническое задание v1.10 от 25 мая 2026 (docs/TZ.md)
 
 Текущее состояние архитектуры по дням реализации. Обновляется в конце каждой задачи.
 
@@ -107,6 +107,11 @@ them simultaneously.
 - These scripts are not registered in APScheduler and are not called by the production scheduler. They are manual pre-rollout verification commands for Telegram base delivery and AI explanation delivery.
 - Full operator contract, exit codes, required environment variables, database preconditions, and rollback semantics are documented in `docs/specs/day8_smoke_harness.md`.
 
+### Codex Issue Dispatcher Research
+
+- `docs/research/codex_issue_dispatcher.md` records the Issue #31 Level 2 automation research outcome. Full automation from `codex-ready` GitHub Issues to Codex CLI runs and PR creation is postponed until explicit Operator approval gates, runner safety, and audit controls are accepted.
+- Current default remains the Level 1 manual workflow: approved Issue, Operator-provided prompt, Codex/Claude Code execution, PR review, and Operator merge. No watcher, GitHub Action, systemd unit, or product runtime component exists for the dispatcher.
+
 ### Day 6 Implemented Baseline
 
 - Pattern evaluation pipeline: `src/duzman/patterns/evaluation.py`
@@ -142,11 +147,9 @@ routes are served. Missing, empty, or incorrect request keys return 401 with
 
 `/health` remains open because it belongs to the separate health server
 (`duzman.runtime.run_health_server`), not the main FastAPI API app. The
-`/api/market-data/ingestion-status` route is intentionally protected even
-though older TZ text described it as open: it exposes operational telemetry
-including assets seen, sources seen, timestamps, counts, health state, and
-alerts. TODO: sync this route-auth policy back into `docs/TZ.md` through the
-change-control process.
+`/api/market-data/ingestion-status` route is intentionally protected because
+it exposes operational telemetry including assets seen, sources seen,
+timestamps, counts, health state, and alerts.
 
 ### Тесты
 

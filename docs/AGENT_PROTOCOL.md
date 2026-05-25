@@ -1,4 +1,4 @@
-# Agent Protocol (v1.9)
+# Agent Protocol (v1.10)
 
 Описывает обязательные шаги исполнителя (Claude Code / Codex CLI)
 при работе над задачей. Привязка к docs/TZ.md разделы 0.4, 0.5,

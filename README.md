@@ -2,7 +2,7 @@
 
 Персональный crypto metrics monitor. Этап А.
 
-См. Техническое задание v1.9 от 2026-05-22 ([docs/TZ.md](docs/TZ.md)).
+См. Техническое задание v1.10 от 2026-05-25 ([docs/TZ.md](docs/TZ.md)).
 
 ## Local development
 
@@ -97,7 +97,7 @@ the main FastAPI API app.
 
 `/api/market-data/ingestion-alerts` returns deterministic read-only alerts for local ingestion health, including missing price data, stale price data, missing source health checks, recent source failures, and stale source health checks. These alerts are based only on persisted local records and are not AI-generated trading advice.
 
-`/api/market-data/ingestion-status` includes an `ingestion_health_summary` field with deterministic `healthy`, `warning`, or `critical` status derived from the same alert logic. It is intentionally protected even though older TZ text described it as open, because it exposes operational telemetry such as observed assets, sources, timestamps, counts, health state, and alerts. `/health` is the open liveness endpoint.
+`/api/market-data/ingestion-status` includes an `ingestion_health_summary` field with deterministic `healthy`, `warning`, or `critical` status derived from the same alert logic. It is intentionally protected because it exposes operational telemetry such as observed assets, sources, timestamps, counts, health state, and alerts. `/health` is the open liveness endpoint.
 
 Verify route registration offline with:
 

@@ -1,57 +1,11 @@
-# Duzman — Техническое задание v1.10
+# Duzman — Техническое задание v1.9
 
 Персональный crypto metrics monitor. Этап А.
 
-Версия 1.10 · 25 мая 2026
+Версия 1.9 · 22 мая 2026
 
-Version: v1.10
-Fixed: 2026-05-25
-
----
-
-## Изменения в версии 1.10
-
-Версия 1.10 синхронизирует canonical TZ с уже смерженными
-PR #77, #78, #79 и #80. Изменения фиксируют фактические
-контракты read-only API, AI explanation retry/cost accounting
-и Level 2 Codex Issue dispatcher research. Новых runtime
-компонентов, миграций, deploy-операций или production-действий
-в этой версии не добавляется.
-
-Содержательные изменения:
-
-- Раздел 4.9: политика авторизации read-only API приведена
-  к реализованному состоянию PR #77 / Issue #76. Все
-  `/api/market-data/*` endpoints требуют `X-API-Key`; source
-  of truth — `DUZMAN_API_KEY`; пустой или отсутствующий ключ
-  fail-closed на `create_app()`. Открытым остаётся только
-  `/health` в отдельном health runtime.
-- Раздел 4.5 и Приложение Б: зафиксированы фактические
-  контракты AI explanations после PR #78 / Issue #34 и
-  PR #79 / Issue #32. Retryable terminal rows
-  (`failed`, `failed_stale`, `skipped_cost_cap`) могут
-  reset-иться в place в `pending`; cost cap считает только
-  terminal Anthropic-attempt statuses (`completed`, `failed`,
-  `failed_stale`) по `completed_at` с fallback на `created_at`.
-- Раздел 6.5 и 7.8: hourly flow и Telegram delivery приведены
-  к текущей архитектуре: AlertGate сохраняет `pattern_triggers`,
-  Telegram delivery state живёт в `alert_deliveries`, AI
-  explanations создаются после успешной base Telegram delivery.
-- Приложение Е: добавлен research outcome по PR #80 /
-  Issue #31. Level 2 Codex Issue dispatcher automation
-  отложена; текущий Level 1 manual Issue -> Operator prompt
-  -> Codex -> PR workflow остаётся default. Полная рекомендация
-  сохранена в `docs/research/codex_issue_dispatcher.md`.
-
-Синхронные апдейты в том же PR: README.md, docs/ARCHITECTURE.md,
-docs/AGENT_PROTOCOL.md и docs/REVIEW_PROTOCOL.md обновлены на
-привязку к TZ v1.10; docs/archive/TZ_v1.9.md создан как snapshot
-предыдущей версии.
-
-Что НЕ изменилось: стек технологий, product DB schema в коде,
-AlertGate hard caps, Telegram delivery runtime, AI worker runtime,
-Codex/Claude Code execution roles, forbidden actions, deploy
-процесс и граница этапа А/Б.
+Version: v1.9
+Fixed: 2026-05-22
 
 ---
 
@@ -799,23 +753,6 @@ AlertGate и Telegram base delivery, читает pending alert_explanations и�
 выключенной фиче или отсутствии ANTHROPIC_API_KEY worker завершает работу
 безопасно. Deployment как systemd-сервис — отдельная будущая задача.
 
-Retry semantics: `alert_explanations` хранит одну idempotent task на
-`pattern_trigger_id`. Terminal statuses `failed`, `failed_stale` и
-`skipped_cost_cap` считаются retryable: при повторном создании task они
-reset-ятся в той же строке в `pending`, сохраняя `id`,
-`pattern_trigger_id` и `created_at`, но обновляя текущие
-`alert_delivery_id`, `cache_key`, `prompt_hash` и
-`prompt_context_json`. Statuses `completed`, `reused_cache`,
-`skipped_disabled`, `skipped_no_base_message`, `pending` и `running`
-не retry-ятся, чтобы не создавать duplicate spend или duplicate replies.
-
-Cost cap accounting: budget считает только terminal Anthropic-attempt
-statuses `completed`, `failed`, `failed_stale`. Statuses `pending`,
-`running`, `reused_cache`, `skipped_cost_cap`, `skipped_disabled` и
-`skipped_no_base_message` в budget не входят. Временное окно считается
-по `completed_at` с fallback на `created_at`, чтобы same-row retry,
-завершившийся сейчас, входил в текущий часовой/суточный budget window.
-
 ### 4.6. Антиспам и cooldown
 
 Защита от шума реализована тремя слоями.
@@ -899,15 +836,7 @@ Read-only ingestion endpoints (`/api/market-data/`). Новое в v1.3. Реа�
 - API-ключ 64 hex-символа в заголовке `X-API-Key`
 - Генерация: `openssl rand -hex 32`
 - Хранение: `.env` с правами 600
-- Все endpoints под `/api/market-data/*` требуют `X-API-Key`
-- Source of truth: `DUZMAN_API_KEY`; пустой или отсутствующий ключ
-  fail-closed при создании FastAPI app до обслуживания protected routes
-- Missing, empty или неверный request key возвращает HTTP 401 с
-  `WWW-Authenticate: ApiKey realm="duzman"`
-- Открытые без auth: `/health` в отдельном health runtime. Endpoint
-  `/api/market-data/ingestion-status` intentionally protected, так как
-  раскрывает operational telemetry: assets seen, sources seen,
-  timestamps, counts, source health state и ingestion alerts
+- Открытые без auth: `/health`, `/api/market-data/ingestion-status`
 
 Rate limiting: 60 запросов в минуту с одного IP. Не применяется к localhost.
 
@@ -1115,13 +1044,7 @@ duzman/
 - Raw данные → БД
 - Indicators Engine считает производные
 - Pattern Engine проверяет шаблоны
-- Для совпавших: AlertGate decision → `pattern_triggers` с
-  `conditions_snapshot.gate_decision`
-- Только `ALLOW` triggers передаются в delivery слой
-- Telegram base delivery фиксируется в `alert_deliveries`, включая
-  `telegram_message_id` для последующего AI explanation reply
-- AI explanation task создаётся только после успешной base Telegram
-  delivery и обрабатывается отдельным optional worker
+- Для совпавших: cooldown → `pattern_trigger` → AI-объяснение → формат → Telegram → `alerts_sent`
 
 ### 6.6. Daily обслуживание (02:30 UTC)
 
@@ -1231,18 +1154,13 @@ duzman/
 - Telegram worker запускается явно как managed async background task и безопасно отключается при отсутствии `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`
 - TelegramSender и formatter доставляют только AlertGate `ALLOW` alerts из `pattern_triggers`; AlertGate не вызывает Telegram напрямую
 - Startup digest отправляет bounded список недоставленных alerts за `TELEGRAM_STARTUP_LOOKBACK_HOURS`
-- `alert_deliveries` хранит per-alert delivery state (`sent`, `failed`, `acked`, `snoozed`) и Telegram base `telegram_message_id`; `telegram_channel_state` хранит global enabled/muted/snooze
+- `alert_deliveries` хранит per-alert delivery state (`sent`, `failed`, `acked`, `snoozed`); `telegram_channel_state` хранит global enabled/muted/snooze
 - Команды MVP: `/start`, `/help`, `/status`, `/alerts`, `/mute`, `/unmute`, `/snooze`
 - Inline buttons, multi-chat, webhook и per-alert snooze отложены
-- AI explanations — день 8: после successful base delivery создаётся
-  `alert_explanations` task; worker отправляет второе сообщение как
-  reply к сохранённому `telegram_message_id`
+- AI-объяснитель Claude Sonnet 4.6 и Anthropic API — день 8, не часть Telegram MVP
 
 ### 7.9. День 8 — Дашборд и REST API
 
-- Optional AI explanations через Anthropic Claude Sonnet 4.6:
-  prompt builder, cache lookup, cost limiter, retryable same-row
-  requeue, sequential worker, Telegram reply delivery
 - FastAPI приложение полностью (включая `/api/v1/`)
 - API auth middleware
 - HTML + Jinja2 + Plotly.js
@@ -1599,7 +1517,6 @@ CREATE TABLE alert_deliveries (
     channel VARCHAR(20) NOT NULL,
     status VARCHAR(20) NOT NULL,
     sent_at TIMESTAMPTZ,
-    telegram_message_id BIGINT,
     ack_at TIMESTAMPTZ,
     snooze_until TIMESTAMPTZ,
     error_message TEXT,
@@ -1613,31 +1530,6 @@ CREATE INDEX ix_alert_deliveries_status_channel
     ON alert_deliveries(status, channel);
 CREATE INDEX ix_alert_deliveries_sent_at
     ON alert_deliveries(sent_at DESC);
-
-CREATE TABLE alert_explanations (
-    id BIGSERIAL PRIMARY KEY,
-    pattern_trigger_id BIGINT NOT NULL REFERENCES pattern_triggers(id) ON DELETE CASCADE,
-    alert_delivery_id BIGINT REFERENCES alert_deliveries(id) ON DELETE SET NULL,
-    status VARCHAR(32) NOT NULL,
-    model VARCHAR(64),
-    cache_key VARCHAR(64) NOT NULL,
-    prompt_hash VARCHAR(64) NOT NULL,
-    prompt_context_json JSONB,
-    prompt_tokens INTEGER,
-    completion_tokens INTEGER,
-    total_tokens INTEGER,
-    text TEXT,
-    error_message TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    started_at TIMESTAMPTZ,
-    completed_at TIMESTAMPTZ
-);
-CREATE UNIQUE INDEX uq_alert_explanations_pattern_trigger_id
-    ON alert_explanations(pattern_trigger_id);
-CREATE INDEX ix_alert_explanations_status_created_at
-    ON alert_explanations(status, created_at);
-CREATE INDEX ix_alert_explanations_cache_key_created_at
-    ON alert_explanations(cache_key, created_at DESC);
 
 CREATE TABLE telegram_channel_state (
     id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
@@ -1764,7 +1656,7 @@ git checkout -- <file>  # откатить один файл
 
 ### Е.2. Источник правды
 
-Единственный источник правды — текущая версия ТЗ (на момент 25 мая 2026 это v1.10, файл `docs/TZ.md` в репозитории).
+Единственный источник правды — текущая версия ТЗ (на момент 22 мая 2026 это v1.9, файл `docs/TZ.md` в репозитории).
 
 Все агенты при старте задачи читают `docs/TZ.md`. Подробный change-control процесс описан в разделе 0.4. Отклонения от ТЗ не допускаются (см. раздел 0.4).
 
@@ -1808,22 +1700,6 @@ git checkout -- <file>  # откатить один файл
 - Читает `docs/ARCHITECTURE.md` (текущее состояние)
 - Читает свой файл конвенций (`SKILL.md` или `AGENTS.md`)
 - Читает Issue и спецификацию задачи (формат — Приложение Г, 8 полей)
-
-### Е.5.1. Codex Issue dispatcher Level 2 automation
-
-Текущий default workflow остаётся Level 1: approved GitHub Issue -> Operator prompt -> Codex CLI / Claude Code execution -> PR -> review -> Operator merge. Полная автоматизация GitHub Issue -> Codex CLI run -> branch/PR creation НЕ реализована.
-
-PR #80 / Issue #31 добавил research recommendation в `docs/research/codex_issue_dispatcher.md`. Решение: postpone full Level 2 automation until explicit Operator approval gates, runner safety, and audit controls are implemented.
-
-Если Level 2 будет реализован отдельной будущей задачей, минимальные условия:
-
-- required labels: `codex-ready` и `approved-by-operator`
-- single-run queue/lock
-- dirty worktree refusal
-- Codex запускается через `codex exec` в `workspace-write` sandbox by default, не `danger-full-access`
-- branch/commit/push/PR operations выполняет wrapper вне Codex sandbox, потому что `.git` read-only внутри текущего Codex VPS workflow
-- no `.env`, `/opt/duzman`, deploy, migrations, systemd, credential operations
-- manual merge remains required
 
 ### Е.6. Когда обращаться к Claude через web-чат
 
@@ -2124,7 +2000,7 @@ Reviewer-agent — отдельная абстрактная роль (см. Ж.
 
 ## Заключение
 
-Версия 1.10 синхронизирует TZ с фактически смерженными изменениями PR #77 — #80: защищённый read-only API, уточнённые AI explanation retry/cost contracts и postponed recommendation по Codex Issue dispatcher Level 2. Целевая workflow-модель остаётся manual Level 1: Codex/Claude Code работают по approved Issue и PR, Claude MCP координирует через GitHub API, Operator merges. Включает все формализации и уточнения версий 1.3 — 1.9.
+Версия 1.9 вводит documentation status policy и сохраняет целевую workflow-модель v1.8: Codex/Claude Code writes and pushes the feature branch, Claude MCP opens and comments PR, Operator merges. Включает все формализации и уточнения версий 1.3 — 1.8.
 
 После завершения этапа А и периода эксплуатации не менее 30 дней принимается решение о переходе к этапу Б.
 
@@ -2142,4 +2018,3 @@ Reviewer-agent — отдельная абстрактная роль (см. Ж.
 | 1.7 | 19 мая 2026 | Формализация GitHub-based multi-agent workflow. Раздел 0.4 переписан как change-control. Добавлен раздел 0.5 (GitHub как транспорт между агентами). Приложение Г расширено до 8 полей (добавлена "Зона спецификации"). Приложение Е обновлено под Issue/PR workflow. Добавлено Приложение Ж (роли и forbidden actions, четыре вердикта reviewer-agent). Синхронные апдейты AGENTS.md и .claude/skills/duzman-conventions/SKILL.md. Docs-only, продуктовые контракты не затронуты |
 | 1.8 | 22 мая 2026 | Введена роль Claude MCP. Раздел 0.5 дополнен. Приложение Е.1 дополнено. Приложение Ж: добавлен Ж.1.1, добавлена строка в Ж.2, добавлен Ж.5. Расширение workflow audit: в 0.4.5 добавлен audit requirement против documentation drift, Ж.1.1 явно разрешает Claude MCP открывать PR из уже запушенной executor-owned ветки. Добавлено Приложение З (категории действий: implementation / coordination / authority). Синхронные апдейты AGENTS.md, SKILL.md, docs/AGENT_PROTOCOL.md, docs/REVIEW_PROTOCOL.md, docs/ARCHITECTURE.md, README.md (bump TZ-привязки по 0.4.6). Docs-only, продуктовые контракты не затронуты |
 | 1.9 | 22 мая 2026 | Введена documentation status policy. В разделе 0.4 добавлен подраздел 0.4.8 с пятью статусами (ACTIVE, IMPLEMENTED, SUPERSEDED, ARCHIVED, DRAFT) и правилами их применения. Синхронные апдейты AGENTS.md, SKILL.md, docs/AGENT_PROTOCOL.md, docs/REVIEW_PROTOCOL.md. docs/ARCHITECTURE.md и README.md обновлены по 0.4.6. Архив docs/archive/TZ_v1.8.md создан как побайтная копия v1.8. Docs-only, продуктовые контракты не затронуты. |
-| 1.10 | 25 мая 2026 | Синхронизация TZ после PR #77, #78, #79, #80. Раздел 4.9 обновлён: все `/api/market-data/*` routes защищены `X-API-Key`, `/health` остаётся открытым в отдельном health runtime. Раздел 4.5 и Приложение Б обновлены под AI explanation same-row retry и cost limiter terminal-attempt accounting. Раздел 6.5 и 7.8 уточняют текущий Telegram/AI flow через `alert_deliveries` и `alert_explanations`. Приложение Е добавляет postponed recommendation по Codex Issue dispatcher Level 2 и ссылку на `docs/research/codex_issue_dispatcher.md`. |

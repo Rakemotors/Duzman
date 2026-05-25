@@ -1,6 +1,6 @@
 # Review Protocol
 
-Этот протокол описывает review PR по workflow TZ v1.9, Приложения Ж и З.
+Этот протокол описывает review PR по workflow TZ v1.10, Приложения Ж и З.
 Reviewer проверяет PR против связанного Issue, docs/TZ.md, AGENTS.md или
 SKILL.md, diff и отчёта верификации в теле PR.
 
@@ -23,11 +23,11 @@ SKILL.md, diff и отчёта верификации в теле PR.
 
 ## Что проверяет reviewer
 
-- Связанный Issue указан и содержит 8 полей Приложения Г TZ v1.9.
+- Связанный Issue указан и содержит 8 полей Приложения Г TZ v1.10.
 - Diff находится внутри объявленной Зоны спецификации.
 - Definition of done из Issue перенесён в PR и отмечен PASS/FAIL.
 - Проверки из Issue и PR выполнены, а блокирующие проверки зелёные.
-- Forbidden actions из TZ v1.9 Приложение Ж не нарушены.
+- Forbidden actions из TZ v1.10 Приложение Ж не нарушены.
 - Reviewer-agent проверяет, что PR не опирается на документы
   статуса SUPERSEDED, ARCHIVED или DRAFT. Если опирается —
   вердикт NEEDS_TZ_UPDATE с указанием конкретного документа
