@@ -37,6 +37,19 @@ src-layout, editable install через .venv/bin/python -m pip install -e .
 - Realized Volatility 24h — annualized volatility по 1h close returns, минимум 25 свечей
 - Premium/Discount — (perp_price - spot_price) / spot_price * 100
 
+### Stage A Asset Seed
+
+`src/duzman/assets.py` is the canonical source of truth for Stage A asset
+symbols. Adding a Stage A asset means updating this module and adding a new
+idempotent seed migration in the same PR.
+
+Alembic revision `e6f4a9b2c1d3` seeds canonical Stage A assets and is
+idempotent via PostgreSQL `ON CONFLICT DO NOTHING`. The same FK on
+`assets.symbol` is shared by `indicators`, `price_snapshots`,
+`funding_rates`, `open_interest`, `long_short_ratio`, `liquidations`,
+`liquidation_heatmap`, and `pattern_triggers`, so this seed unblocks all of
+them simultaneously.
+
 ### Pattern Engine — Config Layer
 
 - `src/duzman/patterns/` — Pydantic v2 models and `load_patterns()` for `config/patterns.yaml`; validates known metrics, operators, Stage A assets, unique names, and nested all/any condition groups.
