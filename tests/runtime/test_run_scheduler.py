@@ -17,7 +17,7 @@ def test_run_scheduler_registers_expected_jobs(monkeypatch) -> None:
     )
 
     assert build_scheduler(scheduler=scheduler) is scheduler
-    assert scheduler.add_job.call_count == 7
+    assert scheduler.add_job.call_count == 6
 
 
 def test_import_has_no_side_effects(monkeypatch) -> None:

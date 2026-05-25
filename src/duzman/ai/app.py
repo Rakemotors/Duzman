@@ -11,15 +11,12 @@ from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
+    create_async_engine,
 )
 
 from duzman.ai.anthropic_client import AnthropicClient
 from duzman.ai.explanation_service import ExplanationService, ExplanationServiceConfig
 from duzman.ai.explanation_worker import ExplanationWorker, build_explanation_worker
-from duzman.db.session_async import (
-    build_async_database_session_components,
-    build_async_database_url,
-)
 from duzman.settings import Settings
 from duzman.telegram.sender import TelegramAlertSender, TelegramBotClient
 
@@ -43,12 +40,13 @@ def build_components_from_settings(settings: Settings) -> AiWorkerComponents:
     The sync `DATABASE_URL` remains unchanged for existing sync code. This
     composition root derives an async SQLAlchemy URL only for the day-8 worker.
     """
+    database_url = settings.database_url.get_secret_value()
     telegram_bot_token = settings.telegram_bot_token.get_secret_value()
     anthropic_api_key = settings.anthropic_api_key.get_secret_value()
 
-    async_database = build_async_database_session_components(settings)
-    async_engine = async_database.async_engine
-    session_factory = async_database.session_factory
+    async_url = _build_async_database_url(database_url)
+    async_engine = create_async_engine(async_url, echo=False, pool_pre_ping=True)
+    session_factory = async_sessionmaker(async_engine, expire_on_commit=False)
 
     if not telegram_bot_token:
         raise ValueError("TELEGRAM_BOT_TOKEN must be configured for AI explanations")
@@ -95,4 +93,12 @@ async def dispose_components(components: AiWorkerComponents) -> None:
 
 def _build_async_database_url(sync_url: str) -> str:
     """Return an asyncpg SQLAlchemy URL derived from a supported sync URL."""
-    return build_async_database_url(sync_url)
+    if not sync_url:
+        raise ValueError("DATABASE_URL must be configured for AI explanations")
+    if sync_url.startswith("postgresql+asyncpg://"):
+        return sync_url
+    if sync_url.startswith("postgresql://"):
+        return f"postgresql+asyncpg://{sync_url.removeprefix('postgresql://')}"
+    if sync_url.startswith("postgres://"):
+        return f"postgresql+asyncpg://{sync_url.removeprefix('postgres://')}"
+    raise ValueError("DATABASE_URL scheme is not supported for AI explanations")
