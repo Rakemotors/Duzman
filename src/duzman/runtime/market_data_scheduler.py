@@ -1,45 +1,25 @@
 """Runtime builder for scheduled market data and indicator jobs."""
 
-from __future__ import annotations
-
 import asyncio
-import logging
-import time
 from collections.abc import Callable
-from contextlib import AbstractAsyncContextManager
-from datetime import UTC, datetime
+from datetime import UTC
 
-from apscheduler.schedulers.background import BackgroundScheduler  # type: ignore[import-untyped]
-from apscheduler.schedulers.base import BaseScheduler  # type: ignore[import-untyped]
-from apscheduler.schedulers.blocking import BlockingScheduler  # type: ignore[import-untyped]
-from apscheduler.triggers.cron import CronTrigger  # type: ignore[import-untyped]
-from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.base import BaseScheduler
+from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.orm import Session
 
 from duzman.collectors import BinanceCollector, BybitCollector
-from duzman.db.models import PatternTrigger
-from duzman.logging_config import (
-    configure_logging,
-    get_logger,
-    log_event,
-    safe_error_message,
-)
-from duzman.patterns.evaluation import PatternMatch
+from duzman.logging_config import configure_logging
 from duzman.repositories import IndicatorRepository
-from duzman.scheduler.hourly_tick import (
-    SessionFactory as PatternSessionFactory,
-)
-from duzman.scheduler.hourly_tick import (
-    SnapshotBuilder,
-    run_hourly_pattern_tick,
-)
 from duzman.scheduler.indicator_jobs import (
     collect_indicators_job,
     register_hourly_indicator_collection_job,
 )
 from duzman.scheduler.market_data_jobs import register_hourly_market_data_ingestion_job
 from duzman.services import PublicMarketDataFetcher, run_public_market_data_ingestion_job
+
 
 SessionFactory = Callable[[], Session]
 FetcherFactory = Callable[[], PublicMarketDataFetcher]
@@ -50,14 +30,10 @@ DAILY_ETF_FLOWS_JOB_ID = "etf_flows_daily"
 DAILY_FEAR_GREED_JOB_ID = "fear_greed_daily"
 HOURLY_COINGLASS_JOB_ID = "coinglass_hourly"
 HOURLY_COINGECKO_GLOBAL_JOB_ID = "coingecko_global_hourly"
-HOURLY_PATTERN_TICK_JOB_ID = "pattern_tick_hourly"
-LOGGER = get_logger(__name__)
 
 
 def build_market_data_scheduler(
     session_factory: SessionFactory | None = None,
-    pattern_session_factory: PatternSessionFactory | None = None,
-    pattern_snapshot_builder: SnapshotBuilder | None = None,
     fetcher_factory: FetcherFactory | None = None,
     binance_collector_factory: BinanceCollectorFactory | None = None,
     bybit_collector_factory: BybitCollectorFactory | None = None,
@@ -65,7 +41,6 @@ def build_market_data_scheduler(
     scheduler: BaseScheduler | None = None,
 ) -> BaseScheduler:
     """Build a scheduler with the hourly market data job registered but not started."""
-    resolved_session_factory: SessionFactory
     if session_factory is None:
         from duzman.db.session import get_session_factory
 
@@ -79,9 +54,8 @@ def build_market_data_scheduler(
         indicator_repository_factory or IndicatorRepository
     )
     resolved_scheduler = scheduler or BackgroundScheduler(timezone=UTC)
-    lazy_pattern_session_factory = _LazyPatternSessionFactory(pattern_session_factory)
 
-    def run_collection_cycle() -> object:
+    def run_collection_cycle():
         session = resolved_session_factory()
         try:
             return run_public_market_data_ingestion_job(
@@ -96,7 +70,7 @@ def build_market_data_scheduler(
         run_collection_cycle,
     )
 
-    def run_indicator_cycle() -> object:
+    def run_indicator_cycle():
         return asyncio.run(
             collect_indicators_job(
                 session_factory=resolved_session_factory,
@@ -111,20 +85,7 @@ def build_market_data_scheduler(
         run_indicator_cycle,
     )
 
-    def run_pattern_tick_cycle() -> list[PatternMatch]:
-        return _run_observation_only_pattern_tick_cycle(
-            session_factory=lazy_pattern_session_factory,
-            snapshot_builder=pattern_snapshot_builder,
-        )
-
-    resolved_scheduler.add_job(
-        run_pattern_tick_cycle,
-        trigger=CronTrigger(minute=33, second=0, timezone=UTC),
-        id=HOURLY_PATTERN_TICK_JOB_ID,
-        replace_existing=True,
-    )
-
-    def run_etf_flow_cycle() -> object:
+    def run_etf_flow_cycle():
         from duzman.runtime.farside_jobs import collect_etf_flows_once
 
         return asyncio.run(
@@ -138,7 +99,7 @@ def build_market_data_scheduler(
         replace_existing=True,
     )
 
-    def run_fear_greed_cycle() -> object:
+    def run_fear_greed_cycle():
         from duzman.runtime.alternative_me_jobs import collect_fear_greed_once
 
         return asyncio.run(
@@ -152,13 +113,13 @@ def build_market_data_scheduler(
         replace_existing=True,
     )
 
-    def run_coinglass_cycle() -> object:
+    def run_coinglass_cycle():
         from duzman.runtime.coinglass_jobs import (
             collect_heatmaps_once,
             collect_liquidations_once,
         )
 
-        async def run_sequentially() -> None:
+        async def run_sequentially():
             await collect_liquidations_once(session_factory=resolved_session_factory)
             await collect_heatmaps_once(session_factory=resolved_session_factory)
 
@@ -171,7 +132,7 @@ def build_market_data_scheduler(
         replace_existing=True,
     )
 
-    def run_coingecko_global_cycle() -> object:
+    def run_coingecko_global_cycle():
         from duzman.runtime.coingecko_global_jobs import collect_btc_dominance_once
 
         return asyncio.run(
@@ -202,121 +163,6 @@ def run_market_data_scheduler_forever(
         scheduler=scheduler,
     )
     scheduler.start()
-
-
-class _LazyPatternSessionFactory:
-    """Lazily build the async DB session factory used by the pattern tick."""
-
-    def __init__(self, injected_factory: PatternSessionFactory | None = None) -> None:
-        self._injected_factory = injected_factory
-        self._runtime_factory: PatternSessionFactory | None = None
-
-    def __call__(self) -> AbstractAsyncContextManager[AsyncSession]:
-        """Return a new async session context manager."""
-        return self._resolve_factory()()
-
-    def _resolve_factory(self) -> PatternSessionFactory:
-        """Return the injected or runtime-built pattern session factory."""
-        if self._injected_factory is not None:
-            return self._injected_factory
-        if self._runtime_factory is None:
-            from duzman.db.session_async import build_async_database_session_components
-            from duzman.settings import settings
-
-            self._runtime_factory = build_async_database_session_components(
-                settings
-            ).session_factory
-        return self._runtime_factory
-
-
-def _run_observation_only_pattern_tick_cycle(
-    session_factory: PatternSessionFactory,
-    snapshot_builder: SnapshotBuilder | None = None,
-) -> list[PatternMatch]:
-    """Run one observation-only pattern tick and log cycle-level counts."""
-    started_ns = time.monotonic_ns()
-    tick_ts = datetime.now(UTC)
-    try:
-        allowed_matches, total_matches = asyncio.run(
-            _async_pattern_tick_cycle(
-                session_factory=session_factory,
-                tick_ts=tick_ts,
-                snapshot_builder=snapshot_builder,
-            )
-        )
-    except Exception as exc:
-        log_event(
-            LOGGER,
-            "pattern_tick_cycle_failed",
-            level=logging.ERROR,
-            safe_error_message=safe_error_message(exc),
-            elapsed_ms=_elapsed_ms_since(started_ns),
-        )
-        raise
-
-    log_event(
-        LOGGER,
-        "pattern_tick_cycle_completed",
-        allowed_count=len(allowed_matches),
-        total_matches=total_matches,
-        elapsed_ms=_elapsed_ms_since(started_ns),
-    )
-    return allowed_matches
-
-
-async def _async_pattern_tick_cycle(
-    session_factory: PatternSessionFactory,
-    tick_ts: datetime,
-    snapshot_builder: SnapshotBuilder | None,
-) -> tuple[list[PatternMatch], int]:
-    """Run one pattern tick and count persisted decisions in one event loop.
-
-    Parameters:
-        session_factory: Async SQLAlchemy session factory.
-        tick_ts: Shared UTC timestamp for the full tick and count.
-        snapshot_builder: Optional snapshot builder override for tests.
-
-    Returns:
-        Allowed Pattern Engine matches and total persisted trigger rows for `tick_ts`.
-    """
-    if snapshot_builder is None:
-        allowed_matches = await run_hourly_pattern_tick(
-            session_factory=session_factory,
-            tick_ts=tick_ts,
-        )
-    else:
-        allowed_matches = await run_hourly_pattern_tick(
-            session_factory=session_factory,
-            tick_ts=tick_ts,
-            snapshot_builder=snapshot_builder,
-        )
-    total_matches = await _count_pattern_triggers_at_tick(
-        session_factory,
-        tick_ts,
-    )
-    return allowed_matches, total_matches
-
-
-async def _count_pattern_triggers_at_tick(
-    session_factory: PatternSessionFactory,
-    tick_ts: datetime,
-) -> int:
-    """Count persisted pattern trigger decisions for one tick timestamp."""
-    async with session_factory() as session:
-        return await _count_pattern_trigger_rows(session, tick_ts)
-
-
-async def _count_pattern_trigger_rows(session: AsyncSession, tick_ts: datetime) -> int:
-    """Count pattern trigger rows persisted with the shared tick timestamp."""
-    count = await session.scalar(
-        select(func.count()).select_from(PatternTrigger).where(PatternTrigger.ts == tick_ts)
-    )
-    return int(count or 0)
-
-
-def _elapsed_ms_since(started_ns: int) -> int:
-    """Return elapsed monotonic time in milliseconds."""
-    return (time.monotonic_ns() - started_ns) // 1_000_000
 
 
 if __name__ == "__main__":
