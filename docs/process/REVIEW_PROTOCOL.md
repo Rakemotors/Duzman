@@ -113,3 +113,41 @@ Post-merge gate is insufficient for this class of change because a restart
 loop caused by a misaligned Settings schema can echo `.env` values into the
 journal through a Pydantic `ValidationError`. Reference case: PR #68, commit
 `5a252c0`. No secret values are documented here.
+
+## Async resources across sync scheduler boundaries
+
+Shared async clients, engines, and pools that survive across sync-to-async
+boundaries are blocker-level risk unless a single persistent event loop owns
+the resource for its full lifetime, or the resource is instantiated and
+disposed inside each crossing, tick, or invocation.
+
+Repeated `asyncio.run` calls are dangerous with async resources because each
+call creates and closes a separate event loop. A SQLAlchemy `AsyncEngine` or
+`asyncpg` pool must not be cached across APScheduler sync job invocations
+unless the scheduler itself runs on a persistent async event loop.
+
+Review checklist for scheduler async lifecycle PRs:
+
+- Is any async resource created outside the event loop that uses it?
+- Does any async resource survive after `asyncio.run` returns?
+- Is `dispose` or `close` called in a `finally` block?
+- Does the regression test fail against the previously broken cached-resource
+  pattern?
+
+Tests must not rely only on permissive drivers such as `aiosqlite` for
+loop-binding behavior. For async database lifecycle regressions, require one
+of:
+
+- deterministic loop-binding harness;
+- backend-aware test using the production-like driver;
+- explicit reviewer justification for why loop-binding is irrelevant.
+
+For scheduler async lifecycle fixes, production verification must observe
+enough consecutive ticks to disprove alternating success/failure patterns. For
+the PR #85 class of bug, four consecutive clean ticks is the minimum.
+
+Historical reference: PR #82 failed because multiple `asyncio.run` calls
+touched shared async resources in one sync cycle. PR #84 failed because one
+`asyncio.run` per tick still reused a cached `AsyncEngine` across hourly
+APScheduler invocations. PR #86 fixed this with engine-per-tick lifecycle and
+a deterministic loop-binding harness.
