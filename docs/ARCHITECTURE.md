@@ -148,6 +148,12 @@ routes are served. Missing, empty, or incorrect request keys return 401 with
 
 `/health` remains open because it belongs to the separate health server
 (`duzman.runtime.run_health_server`), not the main FastAPI API app. The
+health payload includes liveness status, package version, UTC timestamp, and a
+best-effort `build_sha`. The build SHA file resolves independently of process
+cwd: `DUZMAN_BUILD_SHA_PATH` can override the file path, otherwise the default
+is package-anchored as `<repo>/BUILD_SHA` from the installed `duzman` package
+location. If no file value is available, `/health` falls back to
+`DUZMAN_BUILD_SHA`, then `unknown`. The
 `/api/market-data/ingestion-status` route is intentionally protected because
 it exposes operational telemetry including assets seen, sources seen,
 timestamps, counts, health state, and alerts.
