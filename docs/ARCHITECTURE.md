@@ -100,6 +100,20 @@ them simultaneously.
 - Runtime wiring: `src/duzman/ai/app.py` exposes `build_components_from_settings()` which assembles async engine, session factory, AnthropicClient, Telegram sender, ExplanationService, and ExplanationWorker. Worker is launched via `src/duzman/runtime/run_ai_explanation_worker.py` supporting both `run_forever` (daemon) and `--run-once` modes. Async DB URL is derived from `settings.database_url` at startup (`postgresql://` → `postgresql+asyncpg://`); the `.env` `DATABASE_URL` stays in sync form for existing sync code.
 - Alembic migration `8f3a2c1b9d6e` creates `alert_explanations`; migration `9b7c6d5e4f3a` adds `alert_deliveries.telegram_message_id`.
 
+### Phase 2 Dispatch Contract
+
+- `src/duzman/dispatch/contract.py` defines the pure dispatch domain boundary:
+  immutable `DispatchEvent` and `DispatchResult` dataclasses, the `Dispatcher`
+  protocol, and `build_dispatch_event()` validation from primitive values only.
+- The contract has no database, scheduler, AlertGate, Pattern Engine, Telegram,
+  Anthropic, market-data, network, or runtime entrypoint dependency.
+- `pattern_triggers.id` is the dispatch idempotency anchor and is represented in
+  Python domain code as `pattern_trigger_id`.
+- Historical DB naming drift: `alert_deliveries.alert_id` semantically maps to
+  `pattern_triggers.id`. New Python domain code should use
+  `pattern_trigger_id` while treating that DB column as the persisted trigger
+  reference.
+
 ### Day 8 Smoke Harness
 
 - `src/duzman/runtime/verify_telegram_base.py` is the B0 dev-only smoke entrypoint. It inserts one synthetic `smoke_b0` AlertGate trigger for BTC, runs Telegram base delivery with AI disabled, and verifies that `alert_deliveries.telegram_message_id` is persisted.
