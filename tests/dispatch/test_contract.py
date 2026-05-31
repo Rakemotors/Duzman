@@ -50,6 +50,33 @@ def test_dispatch_event_is_immutable() -> None:
         event.asset = "ETH"
 
 
+def test_conditions_snapshot_is_shallow_immutable_by_design() -> None:
+    """Document Spec 1 shallow immutability for conditions_snapshot.
+
+    DispatchEvent is frozen, so callers cannot replace the attribute, but Spec
+    1 does not deep-freeze the nested dict. Future code must treat
+    conditions_snapshot as read-only by convention unless deep immutability is
+    added later.
+    """
+    snapshot = {"RSI_4h": 72.5}
+    event = DispatchEvent(
+        pattern_trigger_id=1,
+        asset="BTC",
+        pattern_name="test_pattern",
+        severity="WARNING",
+        ts=NOW,
+        conditions_snapshot=snapshot,
+    )
+
+    with pytest.raises(FrozenInstanceError):
+        event.conditions_snapshot = {}
+
+    snapshot["RSI_4h"] = 99.9
+
+    assert event.conditions_snapshot is not None
+    assert event.conditions_snapshot["RSI_4h"] == 99.9
+
+
 def test_dispatch_event_rejects_naive_datetime() -> None:
     """DispatchEvent should reject naive timestamps."""
     with pytest.raises(ValueError, match="ts must be timezone-aware"):

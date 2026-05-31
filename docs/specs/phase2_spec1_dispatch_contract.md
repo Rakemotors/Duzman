@@ -114,3 +114,14 @@ drift from the earlier alert-delivery layer. Semantically, that column maps to
 New Python domain code should use `pattern_trigger_id` for clarity. When future
 dispatch code reads or writes `alert_deliveries.alert_id`, it should treat that
 column as the persisted reference to `pattern_triggers.id`.
+
+## 7. Future Tightening
+
+`DispatchResult.telegram_status` and `DispatchResult.explanation_status` are
+arbitrary strings in Spec 1. Later specs may tighten them to `Literal[...]` or
+an enum after Spec 2 and Spec 4 reveal the full status taxonomy.
+
+`conditions_snapshot` is shallow-immutable only because it remains
+`dict | None`; the frozen dataclass prevents replacing the attribute, but it
+does not deep-freeze nested dictionary contents. Future deep immutability can be
+added via a wrapper or helper if later dispatch code needs that guarantee.
