@@ -26,9 +26,18 @@ from duzman.runtime.market_data_scheduler import (
 )
 
 
+def _unused_sync_session_factory() -> Any:
+    """Fail if pattern tick tests accidentally execute sync scheduler jobs."""
+    raise AssertionError(
+        "sync session_factory should not be used by pattern tick tests"
+    )
+
+
 def test_scheduler_registers_pattern_tick_job() -> None:
     """The runtime scheduler should register the Phase 1 pattern tick job."""
-    scheduler = build_market_data_scheduler()
+    scheduler = build_market_data_scheduler(
+        session_factory=_unused_sync_session_factory,
+    )
 
     jobs_by_id = {job.id: job for job in scheduler.get_jobs()}
     pattern_job = jobs_by_id[HOURLY_PATTERN_TICK_JOB_ID]
@@ -46,6 +55,7 @@ def test_pattern_tick_job_runs_with_injected_dependencies(
     """The registered pattern tick callable should run offline and log completion."""
     components_factory = _EnginePerTickComponentsFactory()
     scheduler = build_market_data_scheduler(
+        session_factory=_unused_sync_session_factory,
         pattern_session_components_factory=components_factory,
         pattern_snapshot_builder=_executing_empty_snapshot_builder,
     )
