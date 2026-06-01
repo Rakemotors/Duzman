@@ -143,6 +143,28 @@ async def test_client_network_error_is_sanitized() -> None:
 
 
 @pytest.mark.asyncio
+async def test_client_does_not_chain_token_bearing_cause() -> None:
+    """Raised exceptions must not carry token via __cause__."""
+    client = TelegramHttpClient(
+        bot_token=FAKE_TOKEN,
+        timeout_ms=5000,
+        transport=FakeHttpTransport(
+            [
+                httpx.ConnectError(
+                    f"connect https://api.telegram.org/bot{FAKE_TOKEN}/sendMessage"
+                )
+            ]
+        ),
+    )
+
+    with pytest.raises(TelegramTransportError) as exc_info:
+        await client.send_message(chat_id=FAKE_CHAT_ID, text="hello")
+
+    assert exc_info.value.__cause__ is None
+    assert exc_info.value.__suppress_context__ is True
+
+
+@pytest.mark.asyncio
 async def test_client_unexpected_response_shape() -> None:
     """Malformed Telegram success responses should be rejected."""
     client = TelegramHttpClient(

@@ -142,21 +142,21 @@ class TelegramHttpClient:
                 json=payload,
                 request_timeout=self._timeout_ms / 1000,
             )
-        except TimeoutError as exc:
+        except TimeoutError:
             raise TelegramTransportError(
                 error_reason=TELEGRAM_ERROR_TIMEOUT,
                 message="transport_timeout",
-            ) from exc
-        except httpx.TimeoutException as exc:
+            ) from None
+        except httpx.TimeoutException:
             raise TelegramTransportError(
                 error_reason=TELEGRAM_ERROR_TIMEOUT,
                 message="transport_timeout",
-            ) from exc
-        except (httpx.HTTPError, OSError) as exc:
+            ) from None
+        except (httpx.HTTPError, OSError):
             raise TelegramTransportError(
                 error_reason=TELEGRAM_ERROR_NETWORK,
                 message="transport_network_error",
-            ) from exc
+            ) from None
 
         body = _parse_response_body(response, self._bot_token)
         if response.status_code != 200:
@@ -188,12 +188,12 @@ def _parse_response_body(response: HttpResponse, bot_token: str) -> dict[str, An
     """Parse a Telegram JSON response into a dictionary."""
     try:
         body = response.json()
-    except ValueError as exc:
+    except ValueError:
         raise TelegramApiError(
             error_reason=TELEGRAM_ERROR_UNEXPECTED_RESPONSE,
             message="unexpected_response_shape",
             status_code=response.status_code,
-        ) from exc
+        ) from None
     if not isinstance(body, dict):
         raise TelegramApiError(
             error_reason=TELEGRAM_ERROR_UNEXPECTED_RESPONSE,
