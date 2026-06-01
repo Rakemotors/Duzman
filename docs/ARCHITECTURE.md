@@ -129,6 +129,25 @@ them simultaneously.
 - Tests for this layer use fake HTTP transports only. Real Telegram API calls,
   real bot tokens, and real chat ids are out of scope for Spec 2.
 
+### Phase 2 Dispatch Persistence
+
+- `src/duzman/dispatch/persistence/` defines the inert Spec 3 persistence
+  boundary for recording dispatch delivery outcomes in the existing
+  `alert_deliveries` table.
+- `DispatchDeliveryRepository` is session-scoped: callers inject an
+  `AsyncSession` and retain ownership of transactions, session lifecycle, and
+  async engine disposal. The repository does not create engines or commit.
+- The repository reuses the existing `src/duzman/db/models.py::AlertDelivery`
+  ORM model and adds no migration. The existing day-7
+  `src/duzman/db/repositories/alert_deliveries.py::AlertDeliveryRepository`
+  remains unchanged for legacy Telegram runtime paths.
+- Domain code uses `pattern_trigger_id`; the repository maps that value to the
+  historical DB column `alert_deliveries.alert_id`. Idempotency is enforced at
+  `(alert_id, channel)` through dialect-aware `ON CONFLICT DO NOTHING` inserts.
+- Spec 3 is not wired to scheduler/runtime, AlertGate, Pattern Engine, Telegram
+  sending, database session composition, or AI explanations. Future Spec 5
+  orchestration will compose this persistence boundary with Spec 1 and Spec 2.
+
 ### Day 8 Smoke Harness
 
 - `src/duzman/runtime/verify_telegram_base.py` is the B0 dev-only smoke entrypoint. It inserts one synthetic `smoke_b0` AlertGate trigger for BTC, runs Telegram base delivery with AI disabled, and verifies that `alert_deliveries.telegram_message_id` is persisted.
