@@ -1,4 +1,5 @@
 # Changelog
+[2026-05-31] [feat] Add Phase 2 Spec 2 Telegram base sender for Issue #96
 [2026-05-31] [feat] Add Phase 2 Spec 1 dispatch event contract for Issue #91
 [2026-05-25] [docs] TZ v1.10 sync after API auth, AI retry/cost semantics, and Codex dispatcher research
 [2026-05-20] [feat] Day 8 AI explanations via Anthropic API for Telegram alerts

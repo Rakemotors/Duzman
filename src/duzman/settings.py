@@ -1,4 +1,6 @@
-from pydantic import SecretStr, field_validator
+from typing import Self
+
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,6 +17,9 @@ class Settings(BaseSettings):
     database_url: SecretStr = SecretStr("")
     anthropic_api_key: SecretStr = SecretStr("")
     telegram_bot_token: SecretStr = SecretStr("")
+    telegram_chat_id: str | None = None
+    telegram_timeout_ms: int = 5000
+    telegram_enabled: bool = False
     telegram_chat_id_alerts: str = ""
     telegram_chat_id_system: str = ""
     duzman_api_key: SecretStr = SecretStr("")
@@ -39,6 +44,30 @@ class Settings(BaseSettings):
         if value.startswith("claude-opus"):
             raise ValueError("claude-opus models are forbidden for day 8 AI explanations")
         return value
+
+    @field_validator("telegram_timeout_ms")
+    @classmethod
+    def _validate_telegram_timeout_ms(cls, value: int) -> int:
+        """Validate Telegram HTTP timeout bounds."""
+        if value < 1000 or value > 30000:
+            raise ValueError("telegram_timeout_ms must be between 1000 and 30000")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_telegram_enabled_settings(self) -> Self:
+        """Require Telegram credentials only when Telegram dispatch is enabled."""
+        token = (
+            self.telegram_bot_token.get_secret_value()
+            if self.telegram_bot_token is not None
+            else ""
+        )
+        if self.telegram_enabled and not token:
+            raise ValueError(
+                "telegram_bot_token is required when telegram_enabled is true"
+            )
+        if self.telegram_enabled and not self.telegram_chat_id:
+            raise ValueError("telegram_chat_id is required when telegram_enabled is true")
+        return self
 
 
 settings = Settings()
