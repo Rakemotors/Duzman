@@ -1,0 +1,6 @@
+*WARNING* \- test\_pattern
+Asset: *BTC*
+Time: 2026\-05\-31T12:00:00\+00:00
+
+Conditions:
+none

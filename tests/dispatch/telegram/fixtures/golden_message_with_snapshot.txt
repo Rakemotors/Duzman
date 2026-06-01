@@ -1,0 +1,8 @@
+*CRITICAL* \- distribution\_top\_candidate\_majors
+Asset: *ETH*
+Time: 2026\-05\-31T12:00:00\+00:00
+
+Conditions:
+\- RSI\_4h: 72\.5
+\- OI\_CHANGE\_24H: 18\.0
+\- active: true

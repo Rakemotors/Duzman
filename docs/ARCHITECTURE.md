@@ -114,6 +114,21 @@ them simultaneously.
   `pattern_trigger_id` while treating that DB column as the persisted trigger
   reference.
 
+### Phase 2 Telegram Base Sender
+
+- `src/duzman/dispatch/telegram/` defines the inert Spec 2 Telegram base sender
+  boundary: deterministic MarkdownV2 formatting, an injectable async HTTP
+  client, bounded send results, and a `TelegramBaseSender` orchestrator.
+- The sender uses `DispatchEvent` from the Spec 1 contract but is not wired to
+  scheduler/runtime, AlertGate, Pattern Engine, database persistence, AI
+  explanations, or production deployment in Spec 2.
+- Telegram configuration is represented in `src/duzman/settings.py` by
+  `telegram_enabled`, `telegram_bot_token`, `telegram_chat_id`, and
+  `telegram_timeout_ms`; Telegram dispatch remains disabled by default and
+  future Spec 5 runtime wiring must opt in explicitly.
+- Tests for this layer use fake HTTP transports only. Real Telegram API calls,
+  real bot tokens, and real chat ids are out of scope for Spec 2.
+
 ### Day 8 Smoke Harness
 
 - `src/duzman/runtime/verify_telegram_base.py` is the B0 dev-only smoke entrypoint. It inserts one synthetic `smoke_b0` AlertGate trigger for BTC, runs Telegram base delivery with AI disabled, and verifies that `alert_deliveries.telegram_message_id` is persisted.
