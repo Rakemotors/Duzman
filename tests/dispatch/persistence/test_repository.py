@@ -7,13 +7,20 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime
+from typing import cast
 
 import pytest
 from sqlalchemy import func, select
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from duzman.db.models import AlertDelivery
-from duzman.dispatch.persistence.repository import DispatchDeliveryRepository
+from duzman.dispatch.persistence.repository import (
+    DISPATCH_DELIVERY_DIALECT_POSTGRESQL,
+    DISPATCH_DELIVERY_DIALECT_SQLITE,
+    DispatchDeliveryDialect,
+    DispatchDeliveryRepository,
+)
 from duzman.dispatch.persistence.row import (
     DELIVERY_STATUS_SENT,
     TELEGRAM_CHANNEL,
@@ -26,7 +33,7 @@ NOW = datetime(2026, 6, 1, 12, 0, tzinfo=UTC)
 @pytest.mark.asyncio
 async def test_record_delivery_inserts_one_row(session: AsyncSession) -> None:
     """Recording a new delivery should insert one row."""
-    result = await DispatchDeliveryRepository(session).record_delivery(_sent_row())
+    result = await _repository(session).record_delivery(_sent_row())
 
     assert result.persisted is True
     assert result.row_id is not None and result.row_id > 0
@@ -38,7 +45,7 @@ async def test_record_delivery_duplicate_returns_existing_row_id(
     session: AsyncSession,
 ) -> None:
     """Duplicate trigger/channel writes should be idempotent."""
-    repository = DispatchDeliveryRepository(session)
+    repository = _repository(session)
 
     first = await repository.record_delivery(_sent_row())
     second = await repository.record_delivery(_sent_row())
@@ -53,7 +60,7 @@ async def test_record_delivery_allows_different_channels_same_trigger(
     session: AsyncSession,
 ) -> None:
     """The idempotency boundary should include channel."""
-    repository = DispatchDeliveryRepository(session)
+    repository = _repository(session)
 
     telegram = await repository.record_delivery(_sent_row(channel=TELEGRAM_CHANNEL))
     audit = await repository.record_delivery(
@@ -76,7 +83,7 @@ async def test_record_delivery_allows_different_triggers_same_channel(
     session: AsyncSession,
 ) -> None:
     """Different pattern triggers should each get a delivery row."""
-    repository = DispatchDeliveryRepository(session)
+    repository = _repository(session)
 
     first = await repository.record_delivery(_sent_row(pattern_trigger_id=1))
     second = await repository.record_delivery(_sent_row(pattern_trigger_id=2))
@@ -88,7 +95,7 @@ async def test_record_delivery_allows_different_triggers_same_channel(
 @pytest.mark.asyncio
 async def test_find_existing_returns_row(session: AsyncSession) -> None:
     """find_existing should map an ORM row back to the dispatch row contract."""
-    repository = DispatchDeliveryRepository(session)
+    repository = _repository(session)
     await repository.record_delivery(_sent_row())
 
     row = await repository.find_existing(
@@ -105,7 +112,7 @@ async def test_find_existing_returns_row(session: AsyncSession) -> None:
 @pytest.mark.asyncio
 async def test_find_existing_returns_none_when_absent(session: AsyncSession) -> None:
     """find_existing should return None for missing trigger/channel pairs."""
-    row = await DispatchDeliveryRepository(session).find_existing(
+    row = await _repository(session).find_existing(
         pattern_trigger_id=1,
         channel=TELEGRAM_CHANNEL,
     )
@@ -116,7 +123,7 @@ async def test_find_existing_returns_none_when_absent(session: AsyncSession) -> 
 @pytest.mark.asyncio
 async def test_mark_acknowledged_updates_row(session: AsyncSession) -> None:
     """mark_acknowledged should set ack_at and updated_at."""
-    repository = DispatchDeliveryRepository(session)
+    repository = _repository(session)
     result = await repository.record_delivery(_sent_row())
     assert result.row_id is not None
     ack_at = datetime(2026, 6, 1, 13, 0, tzinfo=UTC)
@@ -134,7 +141,7 @@ async def test_mark_acknowledged_updates_row(session: AsyncSession) -> None:
 async def test_mark_acknowledged_missing_row_raises(session: AsyncSession) -> None:
     """mark_acknowledged should fail clearly for missing rows."""
     with pytest.raises(ValueError, match="alert delivery row was not found"):
-        await DispatchDeliveryRepository(session).mark_acknowledged(
+        await _repository(session).mark_acknowledged(
             row_id=999,
             ack_at=NOW,
         )
@@ -149,7 +156,7 @@ async def test_concurrent_insert_race_records_one_row(
     async def record_once() -> bool:
         async with session_factory() as session:
             async with session.begin():
-                result = await DispatchDeliveryRepository(session).record_delivery(_sent_row())
+                result = await _repository(session).record_delivery(_sent_row())
                 return result.persisted
 
     persisted_values = await asyncio.gather(record_once(), record_once())
@@ -162,16 +169,47 @@ async def test_concurrent_insert_race_records_one_row(
 
 
 @pytest.mark.asyncio
-async def test_unknown_dialect_raises_not_implemented(
+async def test_repository_does_not_call_session_get_bind(
     session: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Unsupported SQL dialects should fail explicitly."""
-    repository = DispatchDeliveryRepository(session)
-    monkeypatch.setattr(repository, "_dialect_name", lambda: "mysql")
+    """Explicit dialect configuration should avoid AsyncSession.get_bind()."""
+    monkeypatch.setattr(
+        session,
+        "get_bind",
+        lambda *args, **kwargs: pytest.fail("get_bind must not be called"),
+    )
 
+    result = await _repository(session).record_delivery(_sent_row())
+
+    assert result.persisted is True
+
+
+@pytest.mark.asyncio
+async def test_postgresql_dialect_path_is_selectable_without_connection(
+    session: AsyncSession,
+) -> None:
+    """The PostgreSQL insert branch should be selected explicitly."""
+    repository = DispatchDeliveryRepository(
+        session,
+        dialect=DISPATCH_DELIVERY_DIALECT_POSTGRESQL,
+    )
+
+    statement = repository._insert_statement(_sent_row())
+    compiled = str(statement.compile(dialect=postgresql.dialect()))
+
+    assert "ON CONFLICT" in compiled
+    assert "alert_deliveries" in compiled
+
+
+@pytest.mark.asyncio
+async def test_unknown_dialect_raises_not_implemented(session: AsyncSession) -> None:
+    """Unsupported SQL dialects should fail explicitly."""
     with pytest.raises(NotImplementedError, match="unsupported alert delivery dialect"):
-        await repository.record_delivery(_sent_row())
+        DispatchDeliveryRepository(
+            session,
+            dialect=cast(DispatchDeliveryDialect, "mysql"),
+        )
 
 
 def _sent_row(
@@ -188,3 +226,8 @@ def _sent_row(
         error_message=None,
         sent_at=NOW,
     )
+
+
+def _repository(session: AsyncSession) -> DispatchDeliveryRepository:
+    """Build a repository configured for the async SQLite test schema."""
+    return DispatchDeliveryRepository(session, dialect=DISPATCH_DELIVERY_DIALECT_SQLITE)
