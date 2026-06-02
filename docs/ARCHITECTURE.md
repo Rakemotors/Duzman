@@ -170,6 +170,31 @@ them simultaneously.
   Telegram replies, settings, migrations, production DB, or deployment. It does
   not read `.env` or `DATABASE_URL`, and it uses no `datetime.now()`.
 
+### Phase 2 Dispatch Runtime Wiring
+
+- `src/duzman/dispatch/runtime.py` defines `DispatchRuntimeService`, the Spec 5
+  runtime composition layer for persisted `DispatchEvent` rows. It reserves the
+  Telegram delivery idempotency key before sending and finalizes the row after
+  the Telegram result.
+- `alert_deliveries.status = "sending"` is a non-terminal reservation state
+  used only to prevent duplicate sends before the external Telegram call. Final
+  states remain `sent`, `failed`, and `skipped_disabled`.
+- `src/duzman/scheduler/hourly_tick.py` now builds dispatch events from
+  committed `pattern_triggers` rows for the current tick, so dispatch uses the
+  real `pattern_triggers.id` idempotency anchor.
+- `src/duzman/runtime/market_data_scheduler.py` composes dispatch into the
+  existing hourly Pattern Engine scheduler job through the existing
+  `dispatch_alerts` hook. Runtime dispatch remains disabled unless
+  `telegram_enabled` is true.
+- Production composition constructs `DispatchDeliveryRepository` through
+  `DispatchRuntimeService` with explicit `dialect="postgresql"`. Offline tests
+  and harness fakes use `dialect="sqlite"`.
+- Spec 5 does not construct an Anthropic provider. Optional dispatch AI worker
+  failures, including cache failures, are contained after Telegram delivery is
+  persisted and do not roll back base delivery.
+- No migration, deploy script, systemd unit, production scheduler execution, or
+  production verification is part of Spec 5.
+
 ### Phase 2 Dispatch Harness
 
 - `src/duzman/dispatch/harness/` defines the inert Spec 6 deterministic offline

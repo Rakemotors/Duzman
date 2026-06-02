@@ -22,6 +22,8 @@ from duzman.dispatch.persistence.repository import (
     DispatchDeliveryRepository,
 )
 from duzman.dispatch.persistence.row import (
+    DELIVERY_STATUS_FAILED,
+    DELIVERY_STATUS_SENDING,
     DELIVERY_STATUS_SENT,
     TELEGRAM_CHANNEL,
     AlertDeliveryRow,
@@ -148,6 +150,46 @@ async def test_mark_acknowledged_missing_row_raises(session: AsyncSession) -> No
 
 
 @pytest.mark.asyncio
+async def test_finalize_delivery_updates_reserved_row(session: AsyncSession) -> None:
+    """Finalizing a reserved row should persist the terminal outcome."""
+    repository = _repository(session)
+    reserved = await repository.record_delivery(_sending_row())
+    assert reserved.row_id is not None
+
+    await repository.finalize_delivery(
+        row_id=reserved.row_id,
+        row=_sent_row(),
+        completed_at=NOW,
+    )
+
+    row = await repository.find_existing(
+        pattern_trigger_id=1,
+        channel=TELEGRAM_CHANNEL,
+    )
+    assert row is not None
+    assert row.status == DELIVERY_STATUS_SENT
+    assert row.telegram_message_id == 123
+
+
+@pytest.mark.asyncio
+async def test_finalize_delivery_missing_row_raises(session: AsyncSession) -> None:
+    """Finalizing a missing row should fail explicitly."""
+    with pytest.raises(ValueError, match="alert delivery row was not found"):
+        await _repository(session).finalize_delivery(
+            row_id=999,
+            row=AlertDeliveryRow(
+                pattern_trigger_id=1,
+                channel=TELEGRAM_CHANNEL,
+                status=DELIVERY_STATUS_FAILED,
+                telegram_message_id=None,
+                error_message="telegram_api_error",
+                sent_at=None,
+            ),
+            completed_at=NOW,
+        )
+
+
+@pytest.mark.asyncio
 async def test_concurrent_insert_race_records_one_row(
     session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
@@ -225,6 +267,18 @@ def _sent_row(
         telegram_message_id=123 if channel == TELEGRAM_CHANNEL else None,
         error_message=None,
         sent_at=NOW,
+    )
+
+
+def _sending_row(*, pattern_trigger_id: int = 1) -> AlertDeliveryRow:
+    """Build a valid sending reservation row."""
+    return AlertDeliveryRow(
+        pattern_trigger_id=pattern_trigger_id,
+        channel=TELEGRAM_CHANNEL,
+        status=DELIVERY_STATUS_SENDING,
+        telegram_message_id=None,
+        error_message=None,
+        sent_at=None,
     )
 
 

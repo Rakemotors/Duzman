@@ -8,13 +8,16 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable, Sequence
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Protocol
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from duzman.db.models import PatternTrigger
 from duzman.db.repositories import PatternTriggerRepository
+from duzman.dispatch.contract import DispatchEvent, build_dispatch_event
 from duzman.logging_config import get_logger, safe_error_message
 from duzman.patterns.alert_gate import AlertGate, GateDecision
 from duzman.patterns.config import STAGE_A_ASSETS, load_patterns
@@ -38,10 +41,10 @@ SnapshotBuilder = Callable[
     [AsyncSession, list[str], datetime],
     Awaitable[MetricsSnapshot],
 ]
-AlertDispatcher = Callable[[list[PatternMatch]], Awaitable[None]]
+AlertDispatcher = Callable[[list[DispatchEvent]], Awaitable[object]]
 
 
-@dataclass(frozen=True)
+@dataclass
 class _TriggerForGate:
     """Adapter exposing PatternMatch data through AlertGate's trigger protocol."""
 
@@ -80,7 +83,7 @@ async def run_hourly_pattern_tick(
     Raises:
         Exception: Propagates dispatcher failures after trigger rows are committed.
     """
-    resolved_tick_ts = _ensure_utc(tick_ts or datetime.now(timezone.utc))
+    resolved_tick_ts = _ensure_utc(tick_ts or datetime.now(UTC))
     resolved_patterns = list(patterns or load_patterns(DEFAULT_PATTERNS_PATH))
     repository = pattern_trigger_repository or PatternTriggerRepository()
     gate = alert_gate or AlertGate(repository)
@@ -98,8 +101,27 @@ async def run_hourly_pattern_tick(
         pattern_trigger_repository=repository,
     )
     if dispatch_alerts is not None and allowed_matches:
-        await dispatch_alerts(allowed_matches)
+        dispatch_events = await dispatch_events_for_tick(session_factory, resolved_tick_ts)
+        if dispatch_events:
+            await dispatch_alerts(dispatch_events)
     return allowed_matches
+
+
+async def dispatch_events_for_tick(
+    session_factory: SessionFactory,
+    tick_ts: datetime,
+) -> list[DispatchEvent]:
+    """Return ALLOW dispatch events persisted for one Pattern Engine tick."""
+    resolved_tick_ts = _ensure_utc(tick_ts)
+    async with session_factory() as session:
+        rows = list(
+            await session.scalars(
+                select(PatternTrigger)
+                .where(PatternTrigger.ts == resolved_tick_ts)
+                .order_by(PatternTrigger.id)
+            )
+        )
+    return [_dispatch_event_from_trigger(row) for row in rows if _is_allow_trigger(row)]
 
 
 async def gate_pattern_matches(
@@ -166,6 +188,24 @@ def _trigger_from_match(match: PatternMatch, tick_ts: datetime) -> _TriggerForGa
     )
 
 
+def _is_allow_trigger(row: PatternTrigger) -> bool:
+    """Return whether a persisted trigger row is an AlertGate ALLOW."""
+    snapshot = row.conditions_snapshot or {}
+    return snapshot.get("gate_decision") == GateDecision.ALLOW.value
+
+
+def _dispatch_event_from_trigger(row: PatternTrigger) -> DispatchEvent:
+    """Build a dispatch event from one persisted pattern trigger row."""
+    return build_dispatch_event(
+        pattern_trigger_id=int(row.id),
+        asset=row.asset,
+        pattern_name=row.pattern_name,
+        severity=row.severity,
+        ts=_ensure_utc(row.ts),
+        conditions_snapshot=row.conditions_snapshot,
+    )
+
+
 def _decision_reason(decision: GateDecision) -> str | None:
     """Return the compact suppress reason for logs."""
     return {
@@ -182,7 +222,7 @@ async def _allow_count_24h(
     tick_ts: datetime,
 ) -> int:
     """Return the ALLOW count for the current UTC day including this tick."""
-    day_start = datetime(tick_ts.year, tick_ts.month, tick_ts.day, tzinfo=timezone.utc)
+    day_start = datetime(tick_ts.year, tick_ts.month, tick_ts.day, tzinfo=UTC)
     return await repository.count_allow_in_window(
         session,
         day_start,
@@ -215,5 +255,5 @@ async def _log_gate_decision(
 def _ensure_utc(value: datetime) -> datetime:
     """Return a timezone-aware UTC timestamp."""
     if value.tzinfo is None or value.utcoffset() is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)

@@ -7,9 +7,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 from contextlib import AbstractAsyncContextManager
 from datetime import UTC, datetime
-from types import TracebackType
+from types import ModuleType, SimpleNamespace, TracebackType
 from typing import Any, cast
 
 import pytest
@@ -17,10 +18,13 @@ from apscheduler.triggers.cron import CronTrigger  # type: ignore[import-untyped
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
+import duzman.runtime.market_data_scheduler as market_data_scheduler
 from duzman.db.session_async import AsyncDatabaseSessionComponents
+from duzman.dispatch.persistence.repository import DISPATCH_DELIVERY_DIALECT_POSTGRESQL
 from duzman.patterns.snapshot import AssetMetrics, MetricsSnapshot
 from duzman.runtime.market_data_scheduler import (
     HOURLY_PATTERN_TICK_JOB_ID,
+    _default_pattern_dispatch_factory,
     _run_observation_only_pattern_tick_cycle,
     build_market_data_scheduler,
 )
@@ -57,6 +61,7 @@ def test_pattern_tick_job_runs_with_injected_dependencies(
     scheduler = build_market_data_scheduler(
         session_factory=_unused_sync_session_factory,
         pattern_session_components_factory=components_factory,
+        pattern_dispatch_factory=lambda components: None,
         pattern_snapshot_builder=_executing_empty_snapshot_builder,
     )
     pattern_job = [
@@ -86,6 +91,7 @@ def test_pattern_tick_disposes_engine_after_each_invocation(
         for _ in range(4):
             result = _run_observation_only_pattern_tick_cycle(
                 components_factory=components_factory,
+                dispatch_factory=lambda components: None,
                 snapshot_builder=_executing_empty_snapshot_builder,
             )
             assert result == []
@@ -105,6 +111,7 @@ def test_cached_engine_across_invocations_is_rejected_by_harness() -> None:
 
     first_result = _run_observation_only_pattern_tick_cycle(
         components_factory=components_factory,
+        dispatch_factory=lambda components: None,
         snapshot_builder=_executing_empty_snapshot_builder,
     )
     assert first_result == []
@@ -112,8 +119,76 @@ def test_cached_engine_across_invocations_is_rejected_by_harness() -> None:
     with pytest.raises(RuntimeError, match="engine reused after loop close detected"):
         _run_observation_only_pattern_tick_cycle(
             components_factory=components_factory,
+            dispatch_factory=lambda components: None,
             snapshot_builder=_executing_empty_snapshot_builder,
         )
+
+
+def test_default_dispatch_factory_disabled_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Disabled Telegram settings should not construct runtime dispatch."""
+    monkeypatch.setitem(
+        sys.modules,
+        "duzman.settings",
+        _settings_module(SimpleNamespace(telegram_enabled=False)),
+    )
+
+    assert _default_pattern_dispatch_factory(_components_for_engine(_LoopBoundEngine())) is None
+
+
+def test_default_dispatch_factory_uses_postgresql_dialect(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Runtime dispatch composition should pass PostgreSQL dialect explicitly."""
+    captured: dict[str, object] = {}
+
+    class _Secret:
+        def get_secret_value(self) -> str:
+            return "fake-token"
+
+    class _TelegramClient:
+        def __init__(self, **kwargs: object) -> None:
+            captured["telegram_client"] = kwargs
+
+    class _TelegramSender:
+        def __init__(self, **kwargs: object) -> None:
+            captured["telegram_sender"] = kwargs
+
+    class _DispatchService:
+        def __init__(self, **kwargs: object) -> None:
+            captured["dispatch_service"] = kwargs
+
+        async def dispatch_events(self, events: object) -> list[object]:
+            return []
+
+    monkeypatch.setitem(
+        sys.modules,
+        "duzman.settings",
+        _settings_module(
+            SimpleNamespace(
+                telegram_enabled=True,
+                telegram_bot_token=_Secret(),
+                telegram_chat_id="fake-chat",
+                telegram_timeout_ms=5000,
+            )
+        ),
+    )
+    monkeypatch.setattr(market_data_scheduler, "TelegramHttpClient", _TelegramClient)
+    monkeypatch.setattr(market_data_scheduler, "TelegramBaseSender", _TelegramSender)
+    monkeypatch.setattr(market_data_scheduler, "DispatchRuntimeService", _DispatchService)
+
+    dispatcher = _default_pattern_dispatch_factory(_components_for_engine(_LoopBoundEngine()))
+
+    assert dispatcher is not None
+    service_kwargs = captured["dispatch_service"]
+    assert isinstance(service_kwargs, dict)
+    assert service_kwargs["dialect"] == DISPATCH_DELIVERY_DIALECT_POSTGRESQL
+
+
+def _settings_module(settings: object) -> ModuleType:
+    """Build a fake settings module without loading project configuration files."""
+    module = ModuleType("duzman.settings")
+    module.settings = settings
+    return module
 
 
 async def _executing_empty_snapshot_builder(

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
@@ -19,9 +19,9 @@ from duzman.db.repositories import PatternTriggerRepository
 from duzman.patterns.alert_gate import AlertGate, GateDecision
 from duzman.patterns.evaluation import PatternMatch
 from duzman.patterns.models import Condition, ConditionGroup, PatternDefinition
-from duzman.scheduler.hourly_tick import gate_pattern_matches
+from duzman.scheduler.hourly_tick import dispatch_events_for_tick, gate_pattern_matches
 
-NOW = datetime(2026, 5, 18, 12, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 5, 18, 12, 0, tzinfo=UTC)
 
 
 @dataclass(frozen=True)
@@ -222,7 +222,7 @@ async def test_tick_ts_consistent(
 
     rows = await _trigger_rows(session_factory)
     assert len({row.ts for row in rows}) == 1
-    assert rows[0].ts.replace(tzinfo=timezone.utc) == NOW
+    assert rows[0].ts.replace(tzinfo=UTC) == NOW
 
 
 @pytest.mark.asyncio
@@ -255,6 +255,34 @@ async def test_critical_bypasses_soft_cap_in_integration(
         "ALLOW",
         "ALLOW",
     ]
+
+
+@pytest.mark.asyncio
+async def test_dispatch_events_for_tick_uses_persisted_trigger_ids(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Dispatch events should be built from committed ALLOW trigger rows."""
+    repository = PatternTriggerRepository()
+    async with session_factory() as session:
+        async with session.begin():
+            allowed_id = await repository.insert_trigger(
+                session,
+                TriggerSeed(),
+                GateDecision.ALLOW,
+            )
+            await repository.insert_trigger(
+                session,
+                TriggerSeed(asset="ETH"),
+                GateDecision.SUPPRESS_COOLDOWN,
+            )
+
+    events = await dispatch_events_for_tick(session_factory, NOW)
+
+    assert len(events) == 1
+    assert events[0].pattern_trigger_id == allowed_id
+    assert events[0].asset == "BTC"
+    assert events[0].conditions_snapshot is not None
+    assert events[0].conditions_snapshot["gate_decision"] == "ALLOW"
 
 
 async def _run_matches_tick(

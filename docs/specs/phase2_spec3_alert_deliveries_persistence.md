@@ -96,6 +96,7 @@ Spec 3 delivery statuses intentionally match Spec 2 Telegram result statuses:
 - `sent`
 - `failed`
 - `skipped_disabled`
+- `sending` (added by Spec 5 as a non-terminal reservation state)
 
 `delivery_row_from_telegram_result()` maps:
 
@@ -106,6 +107,10 @@ Spec 3 delivery statuses intentionally match Spec 2 Telegram result statuses:
 - `skipped_disabled`: records the skipped status without send fields.
 
 The mapping is pure and does not call `datetime.now()`.
+
+`sending` rows are created directly by `DispatchRuntimeService` before the
+Telegram send and finalized through `DispatchDeliveryRepository.finalize_delivery()`.
+They are not produced by `delivery_row_from_telegram_result()`.
 
 ## 7. Test Strategy
 

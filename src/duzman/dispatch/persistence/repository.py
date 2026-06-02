@@ -114,6 +114,43 @@ class DispatchDeliveryRepository:
         if result.rowcount != 1:
             raise ValueError("alert delivery row was not found")
 
+    async def finalize_delivery(
+        self,
+        *,
+        row_id: int,
+        row: AlertDeliveryRow,
+        completed_at: datetime,
+    ) -> None:
+        """Finalize one reserved delivery row with a terminal send outcome.
+
+        Parameters:
+            row_id: Existing `alert_deliveries.id` returned by the reservation.
+            row: Terminal delivery row data for the same pattern trigger/channel.
+            completed_at: Timezone-aware timestamp used for `updated_at`.
+
+        Raises:
+            ValueError: If `completed_at` is naive or the row does not exist.
+        """
+        if completed_at.tzinfo is None or completed_at.utcoffset() is None:
+            raise ValueError("completed_at must be timezone-aware")
+        result = await self._session.execute(
+            update(AlertDelivery)
+            .where(
+                AlertDelivery.id == row_id,
+                AlertDelivery.alert_id == row.pattern_trigger_id,
+                AlertDelivery.channel == row.channel,
+            )
+            .values(
+                status=row.status,
+                telegram_message_id=row.telegram_message_id,
+                error_message=row.error_message,
+                sent_at=row.sent_at,
+                updated_at=completed_at,
+            )
+        )
+        if result.rowcount != 1:
+            raise ValueError("alert delivery row was not found")
+
     def _insert_statement(self, row: AlertDeliveryRow) -> Any:
         """Build a dialect-specific INSERT .. ON CONFLICT statement."""
         values = {

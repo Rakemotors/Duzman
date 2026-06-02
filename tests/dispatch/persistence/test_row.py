@@ -12,6 +12,7 @@ import pytest
 
 from duzman.dispatch.persistence.row import (
     DELIVERY_STATUS_FAILED,
+    DELIVERY_STATUS_SENDING,
     DELIVERY_STATUS_SENT,
     DELIVERY_STATUS_SKIPPED_DISABLED,
     TELEGRAM_CHANNEL,
@@ -62,6 +63,20 @@ def test_alert_delivery_row_skipped_disabled_success() -> None:
     )
 
     assert row.status == DELIVERY_STATUS_SKIPPED_DISABLED
+
+
+def test_alert_delivery_row_sending_success() -> None:
+    """A sending reservation row without send fields should validate."""
+    row = AlertDeliveryRow(
+        pattern_trigger_id=1,
+        channel=TELEGRAM_CHANNEL,
+        status=DELIVERY_STATUS_SENDING,
+        telegram_message_id=None,
+        error_message=None,
+        sent_at=None,
+    )
+
+    assert row.status == DELIVERY_STATUS_SENDING
 
 
 @pytest.mark.parametrize("pattern_trigger_id", [0, -1])
