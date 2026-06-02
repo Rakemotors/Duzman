@@ -6,12 +6,13 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from duzman.db.models import AlertDelivery
 from duzman.dispatch.ai_worker import DispatchAIExplanationResult
 from duzman.dispatch.contract import DispatchEvent
 from duzman.dispatch.persistence.repository import (
@@ -20,8 +21,11 @@ from duzman.dispatch.persistence.repository import (
 )
 from duzman.dispatch.persistence.row import (
     DELIVERY_STATUS_FAILED,
+    DELIVERY_STATUS_SENDING,
     DELIVERY_STATUS_SENT,
+    STALE_SENDING_ERROR_MESSAGE,
     TELEGRAM_CHANNEL,
+    AlertDeliveryRow,
 )
 from duzman.dispatch.runtime import DispatchRuntimeService
 from duzman.dispatch.telegram.result import (
@@ -183,6 +187,53 @@ async def test_ai_failure_does_not_rollback_telegram_delivery(
     assert row.status == DELIVERY_STATUS_SENT
 
 
+@pytest.mark.asyncio
+async def test_dispatch_recovers_stale_sending_row_before_reservation(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """A stale sending row should become failed and should not be resent."""
+    await _seed_sending_delivery(
+        session_factory,
+        pattern_trigger_id=1,
+        updated_at=NOW - timedelta(minutes=20),
+    )
+    sender = FakeSender()
+    service = _service(session_factory, sender=sender)
+
+    results = await service.dispatch_events([_event()])
+    row = await _delivery_row(session_factory, pattern_trigger_id=1)
+
+    assert len(results) == 1
+    assert results[0].reservation.persisted is False
+    assert sender.calls == []
+    assert row is not None
+    assert row.status == DELIVERY_STATUS_FAILED
+    assert row.error_message == STALE_SENDING_ERROR_MESSAGE
+
+
+@pytest.mark.asyncio
+async def test_dispatch_does_not_recover_fresh_sending_row(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """A fresh sending row should remain reserved and should not be resent."""
+    await _seed_sending_delivery(
+        session_factory,
+        pattern_trigger_id=1,
+        updated_at=NOW - timedelta(minutes=5),
+    )
+    sender = FakeSender()
+    service = _service(session_factory, sender=sender)
+
+    results = await service.dispatch_events([_event()])
+    row = await _delivery_row(session_factory, pattern_trigger_id=1)
+
+    assert len(results) == 1
+    assert results[0].reservation.persisted is False
+    assert sender.calls == []
+    assert row is not None
+    assert row.status == DELIVERY_STATUS_SENDING
+
+
 def _event(pattern_trigger_id: int = 1) -> DispatchEvent:
     """Build a deterministic dispatch event for a seeded trigger."""
     return DispatchEvent(
@@ -238,6 +289,35 @@ async def _delivery_count(session_factory: async_sessionmaker[AsyncSession]) -> 
         ):
             count += 1
     return count
+
+
+async def _seed_sending_delivery(
+    session_factory: async_sessionmaker[AsyncSession],
+    *,
+    pattern_trigger_id: int,
+    updated_at: datetime,
+) -> None:
+    """Insert one sending delivery row and arrange its deterministic age."""
+    async with session_factory() as session:
+        async with session.begin():
+            repository = DispatchDeliveryRepository(
+                session,
+                dialect=DISPATCH_DELIVERY_DIALECT_SQLITE,
+            )
+            result = await repository.record_delivery(
+                AlertDeliveryRow(
+                    pattern_trigger_id=pattern_trigger_id,
+                    channel=TELEGRAM_CHANNEL,
+                    status=DELIVERY_STATUS_SENDING,
+                    telegram_message_id=None,
+                    error_message=None,
+                    sent_at=None,
+                )
+            )
+            assert result.row_id is not None
+            delivery = await session.get(AlertDelivery, result.row_id)
+            assert delivery is not None
+            delivery.updated_at = updated_at
 
 
 async def _create_schema(connection: Any) -> None:

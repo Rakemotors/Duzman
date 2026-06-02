@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import cast
 
 import pytest
@@ -25,6 +25,7 @@ from duzman.dispatch.persistence.row import (
     DELIVERY_STATUS_FAILED,
     DELIVERY_STATUS_SENDING,
     DELIVERY_STATUS_SENT,
+    STALE_SENDING_ERROR_MESSAGE,
     TELEGRAM_CHANNEL,
     AlertDeliveryRow,
 )
@@ -190,6 +191,122 @@ async def test_finalize_delivery_missing_row_raises(session: AsyncSession) -> No
 
 
 @pytest.mark.asyncio
+async def test_recover_stale_sending_deliveries_noops_without_stale_rows(
+    session: AsyncSession,
+) -> None:
+    """Recovery should be a deterministic no-op when no sending row is stale."""
+    repository = _repository(session)
+    reserved = await repository.record_delivery(_sending_row())
+    assert reserved.row_id is not None
+    await _set_delivery_updated_at(session, row_id=reserved.row_id, updated_at=NOW)
+
+    result = await repository.recover_stale_sending_deliveries(
+        cutoff_ts=NOW - timedelta(minutes=10),
+        recovered_at=NOW,
+    )
+
+    row = await repository.find_existing(
+        pattern_trigger_id=1,
+        channel=TELEGRAM_CHANNEL,
+    )
+    assert result.recovered_count == 0
+    assert row is not None
+    assert row.status == DELIVERY_STATUS_SENDING
+
+
+@pytest.mark.asyncio
+async def test_recover_stale_sending_deliveries_marks_old_sending_failed(
+    session: AsyncSession,
+) -> None:
+    """A stale sending row should become failed with a clear recovery reason."""
+    repository = _repository(session)
+    reserved = await repository.record_delivery(_sending_row())
+    assert reserved.row_id is not None
+    recovered_at = NOW
+    await _set_delivery_updated_at(
+        session,
+        row_id=reserved.row_id,
+        updated_at=NOW - timedelta(minutes=20),
+    )
+
+    result = await repository.recover_stale_sending_deliveries(
+        cutoff_ts=NOW - timedelta(minutes=10),
+        recovered_at=recovered_at,
+    )
+
+    delivery = await session.get(AlertDelivery, reserved.row_id)
+    assert result.recovered_count == 1
+    assert delivery is not None
+    assert delivery.status == DELIVERY_STATUS_FAILED
+    assert delivery.error_message == STALE_SENDING_ERROR_MESSAGE
+    assert delivery.telegram_message_id is None
+    assert delivery.sent_at is None
+    assert delivery.updated_at.replace(tzinfo=UTC) == recovered_at
+
+
+@pytest.mark.asyncio
+async def test_recover_stale_sending_deliveries_uses_explicit_cutoff_boundary(
+    session: AsyncSession,
+) -> None:
+    """Rows exactly at the cutoff should remain fresh for deterministic recovery."""
+    repository = _repository(session)
+    stale = await repository.record_delivery(_sending_row(pattern_trigger_id=1))
+    boundary = await repository.record_delivery(_sending_row(pattern_trigger_id=2))
+    assert stale.row_id is not None
+    assert boundary.row_id is not None
+    cutoff = NOW - timedelta(minutes=10)
+    await _set_delivery_updated_at(
+        session,
+        row_id=stale.row_id,
+        updated_at=cutoff - timedelta(microseconds=1),
+    )
+    await _set_delivery_updated_at(session, row_id=boundary.row_id, updated_at=cutoff)
+
+    result = await repository.recover_stale_sending_deliveries(
+        cutoff_ts=cutoff,
+        recovered_at=NOW,
+    )
+
+    stale_row = await repository.find_existing(
+        pattern_trigger_id=1,
+        channel=TELEGRAM_CHANNEL,
+    )
+    boundary_row = await repository.find_existing(
+        pattern_trigger_id=2,
+        channel=TELEGRAM_CHANNEL,
+    )
+    assert result.recovered_count == 1
+    assert stale_row is not None
+    assert stale_row.status == DELIVERY_STATUS_FAILED
+    assert boundary_row is not None
+    assert boundary_row.status == DELIVERY_STATUS_SENDING
+
+
+@pytest.mark.asyncio
+async def test_recovered_stale_sending_delivery_still_blocks_duplicate_send(
+    session: AsyncSession,
+) -> None:
+    """Recovery should keep the idempotency row and avoid automatic resend."""
+    repository = _repository(session)
+    reserved = await repository.record_delivery(_sending_row())
+    assert reserved.row_id is not None
+    await _set_delivery_updated_at(
+        session,
+        row_id=reserved.row_id,
+        updated_at=NOW - timedelta(minutes=20),
+    )
+    await repository.recover_stale_sending_deliveries(
+        cutoff_ts=NOW - timedelta(minutes=10),
+        recovered_at=NOW,
+    )
+
+    duplicate = await repository.record_delivery(_sending_row())
+
+    assert duplicate.persisted is False
+    assert duplicate.existing_row_id == reserved.row_id
+
+
+@pytest.mark.asyncio
 async def test_concurrent_insert_race_records_one_row(
     session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
@@ -211,11 +328,11 @@ async def test_concurrent_insert_race_records_one_row(
 
 
 @pytest.mark.asyncio
-async def test_repository_does_not_call_session_get_bind(
+async def test_repository_does_not_use_implicit_bind_detection(
     session: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Explicit dialect configuration should avoid AsyncSession.get_bind()."""
+    """Explicit dialect configuration should avoid implicit bind detection."""
     monkeypatch.setattr(
         session,
         "get_bind",
@@ -285,3 +402,16 @@ def _sending_row(*, pattern_trigger_id: int = 1) -> AlertDeliveryRow:
 def _repository(session: AsyncSession) -> DispatchDeliveryRepository:
     """Build a repository configured for the async SQLite test schema."""
     return DispatchDeliveryRepository(session, dialect=DISPATCH_DELIVERY_DIALECT_SQLITE)
+
+
+async def _set_delivery_updated_at(
+    session: AsyncSession,
+    *,
+    row_id: int,
+    updated_at: datetime,
+) -> None:
+    """Set `updated_at` directly to arrange stale/fresh recovery fixtures."""
+    delivery = await session.get(AlertDelivery, row_id)
+    assert delivery is not None
+    delivery.updated_at = updated_at
+    await session.flush()

@@ -69,7 +69,38 @@ The service is constructed with `dialect="postgresql"` for
 This uses the existing unique constraint on `(alert_id, channel)` and does not
 require a migration.
 
-## 5. AI Behavior
+## 5. Stale Sending Recovery
+
+Issue #108 adds deterministic recovery for rows that remain
+`alert_deliveries.status = "sending"` after a crash between reservation and
+finalization.
+
+The implemented policy is conservative:
+
+- `DispatchDeliveryRepository.recover_stale_sending_deliveries()` accepts an
+  explicit timezone-aware cutoff timestamp.
+- Matching Telegram delivery rows with `status = "sending"` and
+  `updated_at < cutoff` are marked `failed`.
+- The fixed `error_message` is `stale_sending_delivery_recovered`.
+- The existing `(alert_id, channel)` idempotency row is preserved.
+- No automatic retry or duplicate Telegram send is attempted.
+
+`DispatchRuntimeService` runs this recovery once before an enabled dispatch
+batch. The batch cutoff is derived from the earliest event timestamp minus the
+configured stale-sending timeout, so tests can inject deterministic event times
+and explicit cutoffs. When recovery updates rows, the runtime emits the warning
+event `dispatch_stale_sending_recovered` with only a recovered-row count.
+
+This means a later scheduler tick no longer leaves stale `sending` rows hidden
+forever: they become terminal failed rows visible to operators, while duplicate
+send risk remains bounded by the existing idempotency constraint.
+
+Production rollout must verify there are no unrecovered stale sending rows
+before enabling Telegram dispatch. Any decision to retry a failed stale delivery
+must be an explicit operator action or a future approved change; this PR does
+not implement automatic resend.
+
+## 6. AI Behavior
 
 Spec 5 accepts an optional injected dispatch AI worker but does not construct a
 real Anthropic provider in runtime scheduler composition. This keeps production
@@ -83,16 +114,16 @@ AI and cache failures are contained after Telegram delivery persistence. If an
 injected AI worker raises, runtime dispatch logs a bounded failure event and
 does not roll back or fail the Telegram delivery.
 
-## 6. Safety
+## 7. Safety
 
 Tests use fake senders, fake AI workers, and in-memory SQLite. They do not read
-production `.env`, use production `DATABASE_URL`, construct real Telegram
-network transports during sends, construct Anthropic clients, or execute
-production scheduler/runtime.
+production configuration files, use production database connection settings,
+construct real Telegram network transports during sends, construct external AI
+clients, or execute production scheduler/runtime.
 
 No deploy scripts, systemd files, migrations, or production paths are changed.
 
-## 7. Future Work
+## 8. Future Work
 
 Future production rollout must be a separate operator-approved plan after PR
 review and merge. If AI explanations are to be included in dispatch runtime,

@@ -9,6 +9,7 @@ import logging
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Protocol
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,9 +24,11 @@ from duzman.dispatch.persistence.repository import (
 )
 from duzman.dispatch.persistence.row import (
     DELIVERY_STATUS_SENDING,
+    STALE_SENDING_ERROR_MESSAGE,
     TELEGRAM_CHANNEL,
     AlertDeliveryRow,
     RecordDeliveryResult,
+    StaleSendingRecoveryResult,
 )
 from duzman.dispatch.telegram.result import (
     TELEGRAM_ERROR_API,
@@ -82,14 +85,18 @@ class DispatchRuntimeService:
         enabled: bool = False,
         repository_factory: RepositoryFactory | None = None,
         dialect: DispatchDeliveryDialect = DISPATCH_DELIVERY_DIALECT_POSTGRESQL,
+        stale_sending_timeout_minutes: int = 10,
     ) -> None:
         """Create a runtime dispatch service with explicit dependencies."""
+        if stale_sending_timeout_minutes <= 0:
+            raise ValueError("stale_sending_timeout_minutes must be positive")
         self._session_factory = session_factory
         self._sender = sender
         self._ai_worker = ai_worker
         self._enabled = enabled
         self._repository_factory = repository_factory
         self._dialect = dialect
+        self._stale_sending_timeout = timedelta(minutes=stale_sending_timeout_minutes)
 
     async def dispatch_events(
         self,
@@ -97,6 +104,14 @@ class DispatchRuntimeService:
     ) -> list[RuntimeDispatchResult]:
         """Dispatch events sequentially and return one result per input event."""
         results: list[RuntimeDispatchResult] = []
+        if self._enabled and events:
+            recovered = await self._recover_stale_sending_before_batch(events)
+            if recovered.recovered_count > 0:
+                LOGGER.warning(
+                    "dispatch_stale_sending_recovered",
+                    extra={"recovered_count": recovered.recovered_count},
+                )
+
         for event in events:
             if not self._enabled:
                 LOGGER.info(
@@ -109,7 +124,10 @@ class DispatchRuntimeService:
             if not reservation.persisted:
                 LOGGER.info(
                     "dispatch_delivery_duplicate_skipped",
-                    extra={"pattern_trigger_id": event.pattern_trigger_id},
+                    extra={
+                        "pattern_trigger_id": event.pattern_trigger_id,
+                        "existing_row_id": reservation.existing_row_id,
+                    },
                 )
                 results.append(
                     RuntimeDispatchResult(
@@ -139,6 +157,21 @@ class DispatchRuntimeService:
             )
         return results
 
+    async def recover_stale_sending_deliveries(
+        self,
+        *,
+        cutoff_ts: datetime,
+        recovered_at: datetime,
+    ) -> StaleSendingRecoveryResult:
+        """Recover stale sending rows with an explicit deterministic cutoff."""
+        async with self._session_factory() as session:
+            async with session.begin():
+                return await self._repository(session).recover_stale_sending_deliveries(
+                    cutoff_ts=cutoff_ts,
+                    recovered_at=recovered_at,
+                    error_message=STALE_SENDING_ERROR_MESSAGE,
+                )
+
     async def _reserve_delivery(self, event: DispatchEvent) -> RecordDeliveryResult:
         """Reserve the Telegram delivery idempotency key before sending."""
         row = AlertDeliveryRow(
@@ -152,6 +185,18 @@ class DispatchRuntimeService:
         async with self._session_factory() as session:
             async with session.begin():
                 return await self._repository(session).record_delivery(row)
+
+    async def _recover_stale_sending_before_batch(
+        self,
+        events: list[DispatchEvent],
+    ) -> StaleSendingRecoveryResult:
+        """Recover rows stale before this batch without retrying Telegram sends."""
+        batch_ts = min(event.ts for event in events)
+        cutoff_ts = batch_ts - self._stale_sending_timeout
+        return await self.recover_stale_sending_deliveries(
+            cutoff_ts=cutoff_ts,
+            recovered_at=batch_ts,
+        )
 
     async def _finalize_delivery(
         self,

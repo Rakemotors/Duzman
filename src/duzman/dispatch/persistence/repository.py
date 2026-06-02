@@ -14,7 +14,15 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from duzman.db.models import AlertDelivery
-from duzman.dispatch.persistence.row import AlertDeliveryRow, RecordDeliveryResult
+from duzman.dispatch.persistence.row import (
+    DELIVERY_STATUS_FAILED,
+    DELIVERY_STATUS_SENDING,
+    STALE_SENDING_ERROR_MESSAGE,
+    TELEGRAM_CHANNEL,
+    AlertDeliveryRow,
+    RecordDeliveryResult,
+    StaleSendingRecoveryResult,
+)
 
 DispatchDeliveryDialect = Literal["postgresql", "sqlite"]
 DISPATCH_DELIVERY_DIALECT_POSTGRESQL: DispatchDeliveryDialect = "postgresql"
@@ -97,6 +105,54 @@ class DispatchDeliveryRepository:
         if row is None:
             return None
         return _row_from_orm(row)
+
+    async def recover_stale_sending_deliveries(
+        self,
+        *,
+        cutoff_ts: datetime,
+        recovered_at: datetime,
+        channel: str = TELEGRAM_CHANNEL,
+        error_message: str = STALE_SENDING_ERROR_MESSAGE,
+    ) -> StaleSendingRecoveryResult:
+        """Mark stale sending delivery rows failed for operator visibility.
+
+        Rows are considered stale when they are still `sending` and their last
+        update is older than `cutoff_ts`. Recovery is conservative: it does not
+        delete the idempotency row or retry the Telegram send because a crash may
+        have happened after Telegram accepted the message but before finalize.
+
+        Raises:
+            ValueError: If timestamps are naive or `error_message` is empty.
+        """
+        _validate_timezone_aware(cutoff_ts, "cutoff_ts")
+        _validate_timezone_aware(recovered_at, "recovered_at")
+        if not error_message.strip():
+            raise ValueError("error_message must be a non-empty string")
+
+        stale_ids = list(
+            await self._session.scalars(
+                select(AlertDelivery.id).where(
+                    AlertDelivery.channel == channel,
+                    AlertDelivery.status == DELIVERY_STATUS_SENDING,
+                    AlertDelivery.updated_at < cutoff_ts,
+                )
+            )
+        )
+        if not stale_ids:
+            return StaleSendingRecoveryResult(recovered_count=0)
+
+        await self._session.execute(
+            update(AlertDelivery)
+            .where(AlertDelivery.id.in_(stale_ids))
+            .values(
+                status=DELIVERY_STATUS_FAILED,
+                error_message=error_message,
+                sent_at=None,
+                telegram_message_id=None,
+                updated_at=recovered_at,
+            )
+        )
+        return StaleSendingRecoveryResult(recovered_count=len(stale_ids))
 
     async def mark_acknowledged(self, *, row_id: int, ack_at: datetime) -> None:
         """Mark one delivery row acknowledged.
@@ -205,3 +261,9 @@ def _ensure_timezone_aware(value: datetime | None) -> datetime | None:
     if value is None or value.tzinfo is not None:
         return value
     return value.replace(tzinfo=UTC)
+
+
+def _validate_timezone_aware(value: datetime, field_name: str) -> None:
+    """Validate that a datetime value is timezone-aware."""
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError(f"{field_name} must be timezone-aware")
