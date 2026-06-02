@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 import logging
 from collections.abc import Mapping, Sequence
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from time import monotonic
 from typing import Any, Protocol
@@ -19,7 +19,6 @@ from duzman.collectors.base import (
 )
 from duzman.collectors.records import OHLCVRecord
 from duzman.logging_config import get_logger, log_event, safe_error_message
-
 
 BINANCE_SOURCE = "binance"
 BINANCE_QUOTE_CURRENCY = "USDT"
@@ -66,7 +65,7 @@ class BinanceCollector:
         timeout_seconds: float = 10.0,
         health_recorder: BinanceSourceHealthRecorder | None = None,
     ) -> None:
-        self.client = client or httpx.AsyncClient(timeout=timeout_seconds)
+        self._client = client
         self.timeout_seconds = timeout_seconds
         self.health_recorder = health_recorder
         self.logger = get_logger(__name__)
@@ -139,7 +138,7 @@ class BinanceCollector:
         """Normalize a supplied Binance ticker payload without making HTTP calls."""
         symbol = self._require_text(payload, "symbol")
         asset_symbol, _binance_symbol = self._normalize_asset_symbol(symbol)
-        observed_at = collected_at or datetime.now(timezone.utc)
+        observed_at = collected_at or datetime.now(UTC)
 
         return MarketDataSnapshot(
             source=self.source,
@@ -190,11 +189,19 @@ class BinanceCollector:
     async def _get_json(self, path: str, params: Mapping[str, str]) -> Any:
         url = f"{self.base_url}{path}"
         try:
-            response = await self.client.get(
-                url,
-                params=dict(params),
-                timeout=self.timeout_seconds,
-            )
+            if self._client is not None:
+                response = await self._client.get(
+                    url,
+                    params=dict(params),
+                    timeout=self.timeout_seconds,
+                )
+            else:
+                async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+                    response = await client.get(
+                        url,
+                        params=dict(params),
+                        timeout=self.timeout_seconds,
+                    )
         except httpx.TimeoutException as exc:
             raise BinanceCollectorError("Binance public request timed out") from exc
         except httpx.HTTPError as exc:
@@ -297,7 +304,7 @@ class BinanceCollector:
             raise MarketDataPayloadError(
                 f"Binance payload has invalid timestamp field: {field_name}"
             ) from exc
-        return datetime.fromtimestamp(timestamp_ms / 1000, tz=timezone.utc)
+        return datetime.fromtimestamp(timestamp_ms / 1000, tz=UTC)
 
     async def _record_success(self, started_at: float) -> None:
         if self.health_recorder is None:

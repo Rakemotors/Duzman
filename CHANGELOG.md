@@ -1,4 +1,5 @@
 # Changelog
+[2026-06-02] [fix] Scope Binance async HTTP clients to active loops for Issue #110
 [2026-06-02] [fix] Recover stale dispatch sending rows for Issue #108
 [2026-06-02] [feat] Wire Phase 2 dispatch flow into scheduler runtime for Issue #106
 [2026-06-02] [fix] Make dispatch delivery repository dialect selection explicit for Issue #100
