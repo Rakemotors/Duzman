@@ -21,7 +21,7 @@ src-layout, editable install через .venv/bin/python -m pip install -e .
 
 ### Коллекторы
 
-- BinanceCollector — публичные Binance spot endpoints /api/v3/ticker/24hr и /api/v3/klines для 6 активов Stage A
+- BinanceCollector — публичные Binance spot endpoints /api/v3/ticker/24hr и /api/v3/klines для 6 активов Stage A. Default-owned async HTTP clients are scoped to the active request loop; injected clients remain caller-owned for tests and specialized composition.
 - AlternativeMeCollector — публичный Alternative.me Fear & Greed endpoint /fng/?limit=1; пишет fear_greed_index через GlobalMetricRepository
 - BybitCollector — публичные derivatives endpoints Bybit v5 для funding rate, open interest и long/short ratio; не собирает спот-цены
 - CoinGeckoCollector — fallback для цен и BTC dominance (последнее ещё не подключено)
