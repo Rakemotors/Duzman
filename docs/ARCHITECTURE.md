@@ -168,7 +168,8 @@ them simultaneously.
   terminal semantics remain `failed`, `failed_stale`, and `skipped_cost_cap`.
 - The layer is not wired to scheduler/runtime, AlertGate, Pattern Engine,
   Telegram replies, settings, migrations, production DB, or deployment. It does
-  not read `.env` or `DATABASE_URL`, and it uses no `datetime.now()`.
+  not read production configuration or database connection settings, and it
+  avoids wall-clock calls.
 
 ### Phase 2 Dispatch Runtime Wiring
 
@@ -179,6 +180,10 @@ them simultaneously.
 - `alert_deliveries.status = "sending"` is a non-terminal reservation state
   used only to prevent duplicate sends before the external Telegram call. Final
   states remain `sent`, `failed`, and `skipped_disabled`.
+- Stale Telegram `sending` rows are recovered conservatively before enabled
+  dispatch batches. Rows older than the deterministic cutoff become `failed`
+  with `stale_sending_delivery_recovered`; the idempotency row is preserved and
+  no automatic resend is attempted.
 - `src/duzman/scheduler/hourly_tick.py` now builds dispatch events from
   committed `pattern_triggers` rows for the current tick, so dispatch uses the
   real `pattern_triggers.id` idempotency anchor.

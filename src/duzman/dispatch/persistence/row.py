@@ -1,6 +1,6 @@
 # src/duzman/dispatch/persistence/row.py
-# Dispatch persistence row contracts. Defines immutable delivery row inputs
-# and idempotent record results for alert_deliveries writes.
+# Dispatch persistence row contracts. Defines immutable delivery row inputs,
+# idempotent record results, and stale delivery recovery summaries.
 """Dispatch delivery persistence row contracts."""
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ DELIVERY_STATUS_SENT = "sent"
 DELIVERY_STATUS_FAILED = "failed"
 DELIVERY_STATUS_SKIPPED_DISABLED = "skipped_disabled"
 DELIVERY_STATUS_SENDING = "sending"
+STALE_SENDING_ERROR_MESSAGE = "stale_sending_delivery_recovered"
 DELIVERY_STATUSES = frozenset(
     [
         DELIVERY_STATUS_SENT,
@@ -81,6 +82,22 @@ class RecordDeliveryResult:
             raise ValueError("row_id must be None when persisted is false")
         if self.existing_row_id is None or self.existing_row_id <= 0:
             raise ValueError("existing_row_id must be positive when persisted is false")
+
+
+@dataclass(frozen=True)
+class StaleSendingRecoveryResult:
+    """Summary of stale `sending` alert delivery rows recovered in one call."""
+
+    recovered_count: int
+
+    def __post_init__(self) -> None:
+        """Validate recovery summary counters.
+
+        Raises:
+            ValueError: If the recovered count is negative.
+        """
+        if self.recovered_count < 0:
+            raise ValueError("recovered_count must be non-negative")
 
 
 def _validate_timezone_aware(value: datetime | None, field_name: str) -> None:
