@@ -148,6 +148,25 @@ them simultaneously.
   sending, database session composition, or AI explanations. Future Spec 5
   orchestration will compose this persistence boundary with Spec 1 and Spec 2.
 
+### Phase 2 Dispatch Harness
+
+- `src/duzman/dispatch/harness/` defines the inert Spec 6 deterministic offline
+  dispatch harness for composing fake Telegram sending, fake AI explanations,
+  and real dispatch persistence in tests.
+- `FakeTelegramSender` records `DispatchEvent` calls and returns configured
+  outcomes by `pattern_trigger_id`, defaulting to `sent` with deterministic
+  `telegram_message_id = pattern_trigger_id * 100`.
+- `FakeAIWorker` records explanation calls and returns a deterministic string;
+  it imports no Anthropic client, HTTP transport, or AI runtime code.
+- `FakePersistence` owns an in-memory `sqlite+aiosqlite:///:memory:` engine,
+  creates only the minimal `assets`, `pattern_triggers`, and
+  `alert_deliveries` schema, seeds BTC trigger ids 1, 2, and 3, and records
+  rows through the real `DispatchDeliveryRepository`.
+- The harness is not wired to scheduler/runtime, AlertGate, Pattern Engine,
+  Telegram runtime, AI runtime, settings, migrations, production DB, or
+  deployment. It never reads `DATABASE_URL` and uses caller-supplied
+  timezone-aware timestamps instead of `datetime.now()`.
+
 ### Day 8 Smoke Harness
 
 - `src/duzman/runtime/verify_telegram_base.py` is the B0 dev-only smoke entrypoint. It inserts one synthetic `smoke_b0` AlertGate trigger for BTC, runs Telegram base delivery with AI disabled, and verifies that `alert_deliveries.telegram_message_id` is persisted.
