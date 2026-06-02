@@ -148,6 +148,24 @@ them simultaneously.
   sending, database session composition, or AI explanations. Future Spec 5
   orchestration will compose this persistence boundary with Spec 1 and Spec 2.
 
+### Phase 2 Dispatch AI Explanation Worker
+
+- `src/duzman/dispatch/ai_worker.py` defines the inert Spec 4 dispatch-facing AI
+  explanation worker boundary. It accepts `DispatchEvent` values and returns
+  bounded explanation results without changing the Spec 1 dispatch contract.
+- `DispatchAIExplanationWorker` builds deterministic prompt requests from
+  dispatch events and calls an injected `DispatchExplanationGenerator`; tests
+  use fakes only and no Anthropic client is constructed by the worker.
+- Optional `DispatchExplanationCache` injection supports deterministic
+  `reused_cache` results and avoids duplicate provider calls for identical
+  event reason keys.
+- Statuses align with the existing Day 8 AI explanation taxonomy:
+  `completed`, `failed`, `skipped_disabled`, and `reused_cache`; retryable
+  terminal semantics remain `failed`, `failed_stale`, and `skipped_cost_cap`.
+- The layer is not wired to scheduler/runtime, AlertGate, Pattern Engine,
+  Telegram replies, settings, migrations, production DB, or deployment. It does
+  not read `.env` or `DATABASE_URL`, and it uses no `datetime.now()`.
+
 ### Phase 2 Dispatch Harness
 
 - `src/duzman/dispatch/harness/` defines the inert Spec 6 deterministic offline
