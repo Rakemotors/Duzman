@@ -68,9 +68,9 @@ The idempotency boundary remains the existing unique constraint on
 
 ## 5. Repository Contract
 
-`DispatchDeliveryRepository` accepts an `AsyncSession` at construction time.
-Callers own transaction commit/rollback, session lifecycle, and async engine
-disposal.
+`DispatchDeliveryRepository` accepts an `AsyncSession` and explicit dialect at
+construction time. Callers own transaction commit/rollback, session lifecycle,
+async engine disposal, and dialect selection.
 
 Public methods:
 
@@ -83,6 +83,11 @@ Public methods:
 
 Supported dialects for idempotent insert are PostgreSQL and SQLite. Unsupported
 dialects raise `NotImplementedError`.
+
+Issue #100 hardening removed runtime `AsyncSession.get_bind()` dialect
+introspection from this repository. Future runtime composition must construct
+the repository as `DispatchDeliveryRepository(session, dialect="postgresql")`;
+offline SQLite tests and fakes use `dialect="sqlite"`.
 
 ## 6. Status Mapping
 
@@ -110,8 +115,8 @@ Tests use `sqlite+aiosqlite:///:memory:` and create a minimal schema for
 
 The tests reuse the repository style already present in
 `tests/db/test_pattern_trigger_repository.py`: async SQLite engine, explicit DDL,
-`async_sessionmaker(..., expire_on_commit=False)`, and fixture-owned engine
-disposal.
+`async_sessionmaker(..., expire_on_commit=False)`, fixture-owned engine
+disposal, and explicit `dialect="sqlite"` repository construction.
 
 ## 8. Future Tightening
 

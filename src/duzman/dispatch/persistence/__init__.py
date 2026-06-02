@@ -4,7 +4,13 @@
 """Dispatch delivery persistence package."""
 
 from duzman.dispatch.persistence.mapping import delivery_row_from_telegram_result
-from duzman.dispatch.persistence.repository import DispatchDeliveryRepository
+from duzman.dispatch.persistence.repository import (
+    DISPATCH_DELIVERY_DIALECT_POSTGRESQL,
+    DISPATCH_DELIVERY_DIALECT_SQLITE,
+    SUPPORTED_DISPATCH_DELIVERY_DIALECTS,
+    DispatchDeliveryDialect,
+    DispatchDeliveryRepository,
+)
 from duzman.dispatch.persistence.row import (
     DELIVERY_STATUS_FAILED,
     DELIVERY_STATUS_SENT,
@@ -21,7 +27,11 @@ __all__ = [
     "DELIVERY_STATUS_SENT",
     "DELIVERY_STATUS_SKIPPED_DISABLED",
     "TELEGRAM_CHANNEL",
+    "DISPATCH_DELIVERY_DIALECT_POSTGRESQL",
+    "DISPATCH_DELIVERY_DIALECT_SQLITE",
+    "SUPPORTED_DISPATCH_DELIVERY_DIALECTS",
     "AlertDeliveryRow",
+    "DispatchDeliveryDialect",
     "DispatchDeliveryRepository",
     "RecordDeliveryResult",
     "delivery_row_from_telegram_result",

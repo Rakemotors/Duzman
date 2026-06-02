@@ -17,7 +17,10 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from duzman.dispatch.persistence.repository import DispatchDeliveryRepository
+from duzman.dispatch.persistence.repository import (
+    DISPATCH_DELIVERY_DIALECT_SQLITE,
+    DispatchDeliveryRepository,
+)
 
 
 class FakePersistence:
@@ -57,7 +60,7 @@ class FakePersistence:
 
     def repository(self, session: AsyncSession) -> DispatchDeliveryRepository:
         """Build a real dispatch delivery repository for a fake session."""
-        return DispatchDeliveryRepository(session)
+        return DispatchDeliveryRepository(session, dialect=DISPATCH_DELIVERY_DIALECT_SQLITE)
 
 
 async def _create_schema(connection: Any) -> None:

@@ -136,7 +136,8 @@ them simultaneously.
   `alert_deliveries` table.
 - `DispatchDeliveryRepository` is session-scoped: callers inject an
   `AsyncSession` and retain ownership of transactions, session lifecycle, and
-  async engine disposal. The repository does not create engines or commit.
+  async engine disposal. The repository does not create engines, inspect
+  session binds, or commit.
 - The repository reuses the existing `src/duzman/db/models.py::AlertDelivery`
   ORM model and adds no migration. The existing day-7
   `src/duzman/db/repositories/alert_deliveries.py::AlertDeliveryRepository`
@@ -144,6 +145,9 @@ them simultaneously.
 - Domain code uses `pattern_trigger_id`; the repository maps that value to the
   historical DB column `alert_deliveries.alert_id`. Idempotency is enforced at
   `(alert_id, channel)` through dialect-aware `ON CONFLICT DO NOTHING` inserts.
+- Dialect selection is explicit at repository construction
+  (`dialect="postgresql"` or `dialect="sqlite"`), so future runtime composition
+  must pass the dialect instead of relying on `AsyncSession.get_bind()`.
 - Spec 3 is not wired to scheduler/runtime, AlertGate, Pattern Engine, Telegram
   sending, database session composition, or AI explanations. Future Spec 5
   orchestration will compose this persistence boundary with Spec 1 and Spec 2.
@@ -179,7 +183,8 @@ them simultaneously.
 - `FakePersistence` owns an in-memory `sqlite+aiosqlite:///:memory:` engine,
   creates only the minimal `assets`, `pattern_triggers`, and
   `alert_deliveries` schema, seeds BTC trigger ids 1, 2, and 3, and records
-  rows through the real `DispatchDeliveryRepository`.
+  rows through the real `DispatchDeliveryRepository` configured explicitly with
+  `dialect="sqlite"`.
 - The harness is not wired to scheduler/runtime, AlertGate, Pattern Engine,
   Telegram runtime, AI runtime, settings, migrations, production DB, or
   deployment. It never reads `DATABASE_URL` and uses caller-supplied

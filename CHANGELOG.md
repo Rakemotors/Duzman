@@ -1,4 +1,5 @@
 # Changelog
+[2026-06-02] [fix] Make dispatch delivery repository dialect selection explicit for Issue #100
 [2026-06-02] [feat] Add Phase 2 Spec 4 dispatch AI explanation worker for Issue #103
 [2026-06-01] [test] Add Phase 2 Spec 6 deterministic dispatch harness for Issue #101
 [2026-06-01] [feat] Add Phase 2 Spec 3 dispatch delivery persistence for Issue #98

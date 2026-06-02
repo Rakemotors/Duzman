@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as postgres_insert
@@ -16,13 +16,39 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from duzman.db.models import AlertDelivery
 from duzman.dispatch.persistence.row import AlertDeliveryRow, RecordDeliveryResult
 
+DispatchDeliveryDialect = Literal["postgresql", "sqlite"]
+DISPATCH_DELIVERY_DIALECT_POSTGRESQL: DispatchDeliveryDialect = "postgresql"
+DISPATCH_DELIVERY_DIALECT_SQLITE: DispatchDeliveryDialect = "sqlite"
+SUPPORTED_DISPATCH_DELIVERY_DIALECTS = frozenset(
+    [
+        DISPATCH_DELIVERY_DIALECT_POSTGRESQL,
+        DISPATCH_DELIVERY_DIALECT_SQLITE,
+    ]
+)
+
 
 class DispatchDeliveryRepository:
     """Persist dispatch delivery outcomes using an injected async session."""
 
-    def __init__(self, session: AsyncSession) -> None:
-        """Initialize a repository scoped to one caller-owned session."""
+    def __init__(
+        self,
+        session: AsyncSession,
+        *,
+        dialect: DispatchDeliveryDialect,
+    ) -> None:
+        """Initialize a repository scoped to one caller-owned session.
+
+        Parameters:
+            session: Caller-owned async SQLAlchemy session.
+            dialect: Explicit SQL dialect used to build the idempotent insert.
+
+        Raises:
+            NotImplementedError: If `dialect` is outside the supported set.
+        """
+        if dialect not in SUPPORTED_DISPATCH_DELIVERY_DIALECTS:
+            raise NotImplementedError(f"unsupported alert delivery dialect: {dialect}")
         self._session = session
+        self._dialect = dialect
 
     async def record_delivery(self, row: AlertDeliveryRow) -> RecordDeliveryResult:
         """Idempotently insert one alert_deliveries row.
@@ -32,7 +58,7 @@ class DispatchDeliveryRepository:
         `alert_deliveries.alert_id`.
 
         Raises:
-            NotImplementedError: If the session dialect is not PostgreSQL or SQLite.
+            NotImplementedError: If the configured dialect is not PostgreSQL or SQLite.
         """
         statement = self._insert_statement(row)
         inserted_id = await self._session.scalar(statement)
@@ -98,26 +124,21 @@ class DispatchDeliveryRepository:
             "error_message": row.error_message,
             "sent_at": row.sent_at,
         }
-        dialect_name = self._dialect_name()
-        if dialect_name == "postgresql":
+        if self._dialect == DISPATCH_DELIVERY_DIALECT_POSTGRESQL:
             return (
                 postgres_insert(AlertDelivery)
                 .values(**values)
                 .on_conflict_do_nothing(index_elements=["alert_id", "channel"])
                 .returning(AlertDelivery.id)
             )
-        if dialect_name == "sqlite":
+        if self._dialect == DISPATCH_DELIVERY_DIALECT_SQLITE:
             return (
                 sqlite_insert(AlertDelivery)
                 .values(**values)
                 .on_conflict_do_nothing(index_elements=["alert_id", "channel"])
                 .returning(AlertDelivery.id)
             )
-        raise NotImplementedError(f"unsupported alert delivery dialect: {dialect_name}")
-
-    def _dialect_name(self) -> str:
-        """Return the SQL dialect bound to the current async session."""
-        return self._session.get_bind().dialect.name
+        raise NotImplementedError(f"unsupported alert delivery dialect: {self._dialect}")
 
     async def _existing_row_id(self, *, pattern_trigger_id: int, channel: str) -> int | None:
         """Return existing delivery id for an idempotency conflict."""

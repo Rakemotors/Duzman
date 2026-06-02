@@ -26,7 +26,8 @@ In scope:
   deterministic explanation string.
 - `FakePersistence`, an async context manager that owns an in-memory
   `sqlite+aiosqlite:///:memory:` engine, creates a minimal schema, seeds BTC
-  trigger ids 1, 2, and 3, and uses the real `DispatchDeliveryRepository`.
+  trigger ids 1, 2, and 3, and uses the real `DispatchDeliveryRepository`
+  configured with `dialect="sqlite"`.
 - `DispatchHarness`, `HarnessDispatchResult`, and `run_dispatch_harness()` for
   sequential batch processing.
 - Offline async tests under `tests/dispatch/harness/`.
@@ -75,6 +76,9 @@ dispatch persistence repository:
 The seeded asset is BTC. The seeded pattern trigger ids are 1, 2, and 3. This
 keeps tests offline and avoids `DATABASE_URL`, Alembic, production DB access,
 or environment-dependent setup.
+
+After Issue #100, the harness fake passes the SQLite dialect explicitly to the
+repository and does not rely on `AsyncSession.get_bind()` introspection.
 
 ## 6. Test Strategy
 
