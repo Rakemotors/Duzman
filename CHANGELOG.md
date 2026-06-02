@@ -1,4 +1,5 @@
 # Changelog
+[2026-06-01] [test] Add Phase 2 Spec 6 deterministic dispatch harness for Issue #101
 [2026-06-01] [feat] Add Phase 2 Spec 3 dispatch delivery persistence for Issue #98
 [2026-05-31] [feat] Add Phase 2 Spec 2 Telegram base sender for Issue #96
 [2026-05-31] [feat] Add Phase 2 Spec 1 dispatch event contract for Issue #91
