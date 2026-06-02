@@ -13,6 +13,7 @@ from duzman.dispatch.persistence.repository import (
 )
 from duzman.dispatch.persistence.row import (
     DELIVERY_STATUS_FAILED,
+    DELIVERY_STATUS_SENDING,
     DELIVERY_STATUS_SENT,
     DELIVERY_STATUS_SKIPPED_DISABLED,
     DELIVERY_STATUSES,
@@ -24,6 +25,7 @@ from duzman.dispatch.persistence.row import (
 __all__ = [
     "DELIVERY_STATUSES",
     "DELIVERY_STATUS_FAILED",
+    "DELIVERY_STATUS_SENDING",
     "DELIVERY_STATUS_SENT",
     "DELIVERY_STATUS_SKIPPED_DISABLED",
     "TELEGRAM_CHANNEL",

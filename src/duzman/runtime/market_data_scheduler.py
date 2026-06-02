@@ -22,6 +22,10 @@ from duzman.db.session_async import (
     AsyncDatabaseSessionComponents,
     build_async_database_session_components,
 )
+from duzman.dispatch.persistence.repository import DISPATCH_DELIVERY_DIALECT_POSTGRESQL
+from duzman.dispatch.runtime import DispatchRuntimeService
+from duzman.dispatch.telegram.client import TelegramHttpClient
+from duzman.dispatch.telegram.sender import TelegramBaseSender
 from duzman.logging_config import (
     configure_logging,
     get_logger,
@@ -31,9 +35,13 @@ from duzman.logging_config import (
 from duzman.patterns.evaluation import PatternMatch
 from duzman.repositories import IndicatorRepository
 from duzman.scheduler.hourly_tick import (
+    AlertDispatcher,
+    SnapshotBuilder,
+    run_hourly_pattern_tick,
+)
+from duzman.scheduler.hourly_tick import (
     SessionFactory as PatternSessionFactory,
 )
-from duzman.scheduler.hourly_tick import SnapshotBuilder, run_hourly_pattern_tick
 from duzman.scheduler.indicator_jobs import (
     collect_indicators_job,
     register_hourly_indicator_collection_job,
@@ -47,6 +55,7 @@ BinanceCollectorFactory = Callable[[], BinanceCollector]
 BybitCollectorFactory = Callable[[], BybitCollector]
 IndicatorRepositoryFactory = Callable[[], IndicatorRepository]
 PatternSessionComponentsFactory = Callable[[], AsyncDatabaseSessionComponents]
+PatternDispatchFactory = Callable[[AsyncDatabaseSessionComponents], AlertDispatcher | None]
 DAILY_ETF_FLOWS_JOB_ID = "etf_flows_daily"
 DAILY_FEAR_GREED_JOB_ID = "fear_greed_daily"
 HOURLY_COINGLASS_JOB_ID = "coinglass_hourly"
@@ -58,6 +67,7 @@ LOGGER = get_logger(__name__)
 def build_market_data_scheduler(
     session_factory: SessionFactory | None = None,
     pattern_session_components_factory: PatternSessionComponentsFactory | None = None,
+    pattern_dispatch_factory: PatternDispatchFactory | None = None,
     pattern_snapshot_builder: SnapshotBuilder | None = None,
     fetcher_factory: FetcherFactory | None = None,
     binance_collector_factory: BinanceCollectorFactory | None = None,
@@ -82,6 +92,9 @@ def build_market_data_scheduler(
     resolved_scheduler = scheduler or BackgroundScheduler(timezone=UTC)
     resolved_pattern_components_factory = (
         pattern_session_components_factory or _default_pattern_components_factory
+    )
+    resolved_pattern_dispatch_factory = (
+        pattern_dispatch_factory or _default_pattern_dispatch_factory
     )
 
     def run_collection_cycle() -> object:
@@ -117,6 +130,7 @@ def build_market_data_scheduler(
     def run_pattern_tick_cycle() -> list[PatternMatch]:
         return _run_observation_only_pattern_tick_cycle(
             components_factory=resolved_pattern_components_factory,
+            dispatch_factory=resolved_pattern_dispatch_factory,
             snapshot_builder=pattern_snapshot_builder,
         )
 
@@ -214,8 +228,41 @@ def _default_pattern_components_factory() -> AsyncDatabaseSessionComponents:
     return build_async_database_session_components(runtime_settings)
 
 
+def _default_pattern_dispatch_factory(
+    components: AsyncDatabaseSessionComponents,
+) -> AlertDispatcher | None:
+    """Build the runtime dispatch hook when Telegram dispatch is enabled."""
+    from duzman.settings import settings as runtime_settings
+
+    if not runtime_settings.telegram_enabled:
+        return None
+    telegram_token = runtime_settings.telegram_bot_token.get_secret_value()
+    telegram_chat_id = runtime_settings.telegram_chat_id
+    if not telegram_token or not telegram_chat_id:
+        return None
+
+    telegram_client = TelegramHttpClient(
+        bot_token=telegram_token,
+        timeout_ms=runtime_settings.telegram_timeout_ms,
+    )
+    telegram_sender = TelegramBaseSender(
+        client=telegram_client,
+        chat_id=telegram_chat_id,
+        enabled=True,
+    )
+    dispatch_service = DispatchRuntimeService(
+        session_factory=components.session_factory,
+        sender=telegram_sender,
+        ai_worker=None,
+        enabled=True,
+        dialect=DISPATCH_DELIVERY_DIALECT_POSTGRESQL,
+    )
+    return dispatch_service.dispatch_events
+
+
 def _run_observation_only_pattern_tick_cycle(
     components_factory: PatternSessionComponentsFactory,
+    dispatch_factory: PatternDispatchFactory | None = None,
     snapshot_builder: SnapshotBuilder | None = None,
 ) -> list[PatternMatch]:
     """Run one observation-only pattern tick and log cycle-level counts."""
@@ -225,6 +272,7 @@ def _run_observation_only_pattern_tick_cycle(
         allowed_matches, total_matches = asyncio.run(
             _async_pattern_tick_cycle(
                 components_factory=components_factory,
+                dispatch_factory=dispatch_factory,
                 tick_ts=tick_ts,
                 snapshot_builder=snapshot_builder,
             )
@@ -251,6 +299,7 @@ def _run_observation_only_pattern_tick_cycle(
 
 async def _async_pattern_tick_cycle(
     components_factory: PatternSessionComponentsFactory,
+    dispatch_factory: PatternDispatchFactory | None,
     tick_ts: datetime,
     snapshot_builder: SnapshotBuilder | None,
 ) -> tuple[list[PatternMatch], int]:
@@ -267,16 +316,21 @@ async def _async_pattern_tick_cycle(
     components = components_factory()
     try:
         session_factory = components.session_factory
+        dispatch_alerts = (
+            dispatch_factory(components) if dispatch_factory is not None else None
+        )
         if snapshot_builder is None:
             allowed_matches = await run_hourly_pattern_tick(
                 session_factory=session_factory,
                 tick_ts=tick_ts,
+                dispatch_alerts=dispatch_alerts,
             )
         else:
             allowed_matches = await run_hourly_pattern_tick(
                 session_factory=session_factory,
                 tick_ts=tick_ts,
                 snapshot_builder=snapshot_builder,
+                dispatch_alerts=dispatch_alerts,
             )
         total_matches = await _count_pattern_triggers_at_tick(
             session_factory,
